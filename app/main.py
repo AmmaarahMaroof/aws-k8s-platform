@@ -57,7 +57,7 @@ async def record_request_metrics(request: Request, call_next):
 
 @app.get("/health", tags=["platform"])
 def health():
-    return {"status": "ok"}
+    return {"status": "broken"}
 
 
 @app.get("/ready", tags=["platform"])
