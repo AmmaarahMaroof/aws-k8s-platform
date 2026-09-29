@@ -8,7 +8,7 @@ An end-to-end DevOps platform project: a FastAPI + PostgreSQL app, containerised
 - [x] Dev environment defined as code (devcontainer)
 - [x] Phase 1: Linux and networking basics
 - [x] Phase 2: FastAPI app + Docker
-- [ ] Phase 3: CI with GitHub Actions
+- [x] Phase 3: CI with GitHub Actions
 - [ ] Phase 4: Terraform on AWS
 - [ ] Phase 5: Kubernetes locally
 - [ ] Phase 6: Kubernetes on AWS + automated deploys
