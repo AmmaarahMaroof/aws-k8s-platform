@@ -1,3 +1,4 @@
 # Development and test tools (NOT installed in the production image).
 -r app/requirements.txt
 pytest>=8,<9
+ruff>=0.6,<1

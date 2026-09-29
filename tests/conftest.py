@@ -8,12 +8,12 @@ import os
 # Must be set before the app is imported, because the DB engine is created at import.
 os.environ["DATABASE_URL"] = "sqlite://"
 
-import pytest  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+import pytest
+from fastapi.testclient import TestClient
 
-from app import models  # noqa: E402,F401
-from app.database import Base, engine  # noqa: E402
-from app.main import app  # noqa: E402
+from app import models  # noqa: F401
+from app.database import Base, engine
+from app.main import app
 
 
 @pytest.fixture
