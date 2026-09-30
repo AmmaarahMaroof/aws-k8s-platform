@@ -52,3 +52,12 @@ output "vpc_id" {
 output "public_subnet_id" {
   value = module.network.public_subnet_id
 }
+
+module "registry" {
+  source = "../../modules/registry"
+  name   = "uptime-monitor"
+}
+
+output "ecr_repository_url" {
+  value = module.registry.repository_url
+}

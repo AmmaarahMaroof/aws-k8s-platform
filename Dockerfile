@@ -9,6 +9,11 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # ---------- Stage 2: the image that actually runs ----------
 FROM python:3.12-slim-bookworm
 
+# Apply pending security updates for OpenSSL (see docs/SECURITY.md)
+RUN apt-get update \
+ && apt-get install -y --only-upgrade openssl libssl3 \
+ && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user to run the app
 RUN useradd --create-home appuser
 
