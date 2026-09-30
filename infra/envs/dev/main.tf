@@ -1,0 +1,54 @@
+terraform {
+  required_version = ">= 1.10"
+
+  # This environment's state gets its own file in the same bucket
+  backend "s3" {
+    bucket       = "uptime-monitor-tfstate-099021515478"
+    key          = "envs/dev/terraform.tfstate"
+    region       = "eu-west-2"
+    encrypt      = true
+    use_lockfile = true
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "eu-west-2"
+
+  default_tags {
+    tags = {
+      Project     = "uptime-monitor"
+      Environment = "dev"
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
+# Dev's settings, all in one place
+locals {
+  name = "uptime-dev"
+}
+
+# Use the network module with dev's values
+module "network" {
+  source = "../../modules/network"
+
+  name               = local.name
+  vpc_cidr           = "10.0.0.0/16"
+  public_subnet_cidr = "10.0.1.0/24"
+  availability_zone  = "eu-west-2a"
+}
+
+output "vpc_id" {
+  value = module.network.vpc_id
+}
+
+output "public_subnet_id" {
+  value = module.network.public_subnet_id
+}
