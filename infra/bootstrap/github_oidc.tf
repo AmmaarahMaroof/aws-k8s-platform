@@ -23,9 +23,9 @@ data "aws_iam_policy_document" "github_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "repo:AmmaarahMaroof@143191112/aws-k8s-platform:pull_request",
-        "repo:AmmaarahMaroof@143191112/aws-k8s-platform:ref:refs/heads/main",
+        values = [
+        "repo:AmmaarahMaroof@143191112/aws-k8s-platform@1394704938:pull_request",
+        "repo:AmmaarahMaroof@143191112/aws-k8s-platform@1394704938:ref:refs/heads/main",
       ]
     }
   }
