@@ -40,3 +40,27 @@ jobs:
             aquasec/trivy:latest image \
             --exit-code 1 --severity CRITICAL --ignore-unfixed \
             uptime-monitor:${{ github.sha }}
+    
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "^1.10"
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive infra
+
+      - name: Validate bootstrap
+        working-directory: infra/bootstrap
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Validate dev environment
+        working-directory: infra/envs/dev
+        run: |
+          terraform init -backend=false
+          terraform validate
