@@ -55,6 +55,9 @@ flowchart LR
     prod -.-> aws
 
     classDef planned stroke-dasharray: 5 5,fill:#f5f5f5,color:#666
+
+        classDef built fill:#e6f4ea,stroke:#34a853,color:#1e4620
+    class dev,repo,test,scan,tfcheck,tfplan,helmlint,oidc,state,ecr,ec2,svcapi,api,cron,svcdb,pg,secret,helm built
 ```
 
 🟩 Green / solid = built · ⬜ Grey / dashed = planned
@@ -64,8 +67,8 @@ flowchart LR
 - [x] Phase 1: Linux and networking basics
 - [x] Phase 2: FastAPI app + Docker
 - [x] Phase 3: CI with GitHub Actions
-- [ ] Phase 4: Terraform on AWS
-- [ ] Phase 5: Kubernetes locally
+- [x] Phase 4: Terraform on AWS
+- [x] Phase 5: Kubernetes locally
 - [ ] Phase 6: Kubernetes on AWS + automated deploys
 - [ ] Phase 7: Monitoring and alerting
 - [ ] Phase 8: Security, backups, disaster recovery
