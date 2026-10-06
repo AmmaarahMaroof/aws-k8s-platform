@@ -99,3 +99,14 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 | `fatal: a branch named ... already exists` | `git checkout <branch>` instead of `git checkout -b` |
 | Git LFS hook warnings in a container without LFS | Remove the unused hooks: `rm -f .git/hooks/pre-push .git/hooks/post-*` |
 | Files created by a command don't exist | Check with `ls -la` / `cat` before moving on |
+
+
+## Kubernetes
+
+### 12. One API replica restarted once on first deploy
+- **Symptom:** `kubectl get pods` showed `RESTARTS 1` on one of the two API pods, a few seconds after creation. Everything worked afterwards.
+- **Diagnosis:** `kubectl -n uptime logs <pod> --previous` (logs of the crashed container, not the current one).
+- **Cause:** `UniqueViolation ... sites_id_seq already exists`. Both replicas ran "create tables if missing" at startup against an empty database at the same moment; one won, the other crashed. On restart the tables existed, so it started fine (a race condition).
+- **Fix (current):** Documented. It only affects the very first start on an empty database, and Kubernetes self-heals it.
+- **Fix (proper, planned):** Run schema migrations once, as a separate Kubernetes Job or init step (e.g. Alembic), before the API rolls out, instead of every replica doing it at startup.
+- **Lesson:** A restart count above 0 is a clue, even when everything looks healthy. `--previous` is the first command for any restart. Startup code that is safe with one instance may not be safe with several.
