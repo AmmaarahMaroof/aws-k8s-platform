@@ -90,6 +90,25 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 
 ---
 
+## Kubernetes
+
+### 12. One API replica restarted once on first deploy
+- **Symptom:** `kubectl get pods` showed `RESTARTS 1` on one of the two API pods, a few seconds after creation. Everything worked afterwards.
+- **Diagnosis:** `kubectl -n uptime logs <pod> --previous` (logs of the crashed container, not the current one).
+- **Cause:** `UniqueViolation ... sites_id_seq already exists`. Both replicas ran "create tables if missing" at startup against an empty database at the same moment; one won, the other crashed. On restart the tables existed, so it started fine (a race condition).
+- **Fix (current):** Documented. It only affects the very first start on an empty database, and Kubernetes self-heals it.
+- **Fix (proper, planned):** Run schema migrations once, as a separate Kubernetes Job or init step (e.g. Alembic), before the API rolls out, instead of every replica doing it at startup.
+- **Lesson:** A restart count above 0 is a clue, even when everything looks healthy. `--previous` is the first command for any restart. Startup code that is safe with one instance may not be safe with several.
+
+### 13. API pods crashed once on every fresh Helm install
+- **Symptom:** After `helm install`, both API pods went `Error` → restarted once at ~5s. Postgres only became Ready at ~7s.
+- **Diagnosis:** Compared timings in `kubectl get pods -w`; `kubectl logs <pod> --previous` showed a database connection error.
+- **Cause:** Helm creates everything at once. The API started before Postgres accepted connections, failed to create its tables, and exited. Kubernetes has no `depends_on` like Docker Compose.
+- **Fix:** Added an init container (`wait-for-db`) that loops on `pg_isready -h db` before the API container starts. Fresh installs now show `Init:0/1` → `1/1 Running` with 0 restarts.
+- **Lesson:** Kubernetes doesn't order startup between workloads. Use init containers for hard dependencies, and keep the app tolerant of dependencies being briefly unavailable.
+
+---
+
 ## Handy fixes
 
 | Symptom | Fix |

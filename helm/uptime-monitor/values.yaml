@@ -1,0 +1,28 @@
+# Settings for the whole chart. Override any of these at install time
+# with --set key=value or -f my-values.yaml
+
+image:
+  repository: uptime-monitor
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# Secrets are NOT created by this chart, so no credentials live in Git.
+# They must already exist in the namespace (created via kubectl).
+appConfigSecret: app-config
+
+api:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+checker:
+  schedule: "*/5 * * * *"
+
+postgres:
+  image: postgres:16-bookworm
+  credentialsSecret: db-credentials
+  storage: 1Gi
