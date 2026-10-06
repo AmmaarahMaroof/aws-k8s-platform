@@ -7,39 +7,54 @@ An end-to-end DevOps platform project: a FastAPI + PostgreSQL app, containerised
 ## Architecture
 
 ```mermaid
-flowchart TB
-  Dev[Codespaces devcontainer] -->|branch + pull request| GH[GitHub repo<br/>protected main]
-  GH --> CI[GitHub Actions<br/>lint · 20 tests · build · Trivy scan]
+flowchart LR
+    dev["Developer<br/>GitHub Codespaces"] -->|"push / PR"| repo["GitHub repo<br/>protected main"]
 
-  subgraph AWS[AWS eu-west-2]
-    TF[Terraform modules] --> S3[(S3 remote state<br/>versioned · encrypted · locked)]
-    TF --> VPC
-    TF -.-> ECR[(ECR private registry)]
-
-    subgraph VPC[VPC 10.0.0.0/16 · public subnet · security group]
-      subgraph K3S[EC2 + k3s Kubernetes]
-        APP[Uptime Monitor API<br/>FastAPI pods]
-        CRON[Checker CronJob]
-        DB[(PostgreSQL)]
-        MON[Prometheus + Grafana]
-      end
+    subgraph ci["GitHub Actions CI"]
+        test["Lint + tests<br/>ruff, pytest"]
+        scan["Docker build<br/>+ Trivy scan"]
+        tfcheck["Terraform<br/>fmt + validate"]
+        tfplan["Terraform plan"]
     end
-  end
+    repo --> test --> scan
+    repo --> tfcheck --> tfplan
 
-  CI -.->|push image| ECR
-  CI -.->|terraform plan via OIDC| TF
-  CI -.->|helm upgrade| K3S
-  ECR -.->|pull image| K3S
-  APP -.-> DB
-  CRON -.-> DB
-  MON -.->|scrape /metrics| APP
+    subgraph aws["AWS eu-west-2"]
+        oidc["IAM role via OIDC<br/>read-only, no keys"]
+        state[("S3 state bucket<br/>versioned, locked")]
+        ecr["ECR<br/>immutable tags, scan on push"]
+        subgraph vpc["VPC 10.0.0.0/16"]
+            ec2["EC2 t3.small<br/>SSM only, IMDSv2, encrypted"]
+        end
+    end
+    tfplan -->|"OIDC token"| oidc
+    oidc --> state
+    ec2 -.->|"pull images"| ecr
 
-  classDef built fill:#d4edda,stroke:#2e7d32,color:#000
-  classDef planned fill:#f5f5f5,stroke:#888,stroke-dasharray:5 5,color:#000
-  class Dev,GH,CI,TF,S3 built
-  class ECR,APP,CRON,DB,MON planned
-  style VPC fill:#e8f5e9,stroke:#2e7d32,color:#000
-  style K3S fill:#fafafa,stroke:#888,stroke-dasharray:5 5,color:#000
+    subgraph k8s["Kubernetes - namespace uptime"]
+        svcapi["Service: api"] --> api["Deployment: api<br/>2 replicas, probes"]
+        cron["CronJob: checker<br/>every 5 min"]
+        svcdb["Service: db"] --> pg[("StatefulSet: postgres<br/>+ PVC")]
+        secret["Secrets<br/>created via CLI"]
+        api --> svcdb
+        cron --> svcdb
+        secret -.-> api
+        secret -.-> cron
+    end
+    dev -->|"minikube"| svcapi
+
+    helm["Helm chart"]:::planned
+    mig["DB migrations Job"]:::planned
+    deploy["CI deploy to cluster<br/>on EC2 from ECR"]:::planned
+    obs["Prometheus + Grafana"]:::planned
+    prod["prod environment"]:::planned
+    helm -.-> k8s
+    mig -.-> pg
+    deploy -.-> ec2
+    obs -.->|"/metrics"| api
+    prod -.-> aws
+
+    classDef planned stroke-dasharray: 5 5,fill:#f5f5f5,color:#666
 ```
 
 🟩 Green / solid = built · ⬜ Grey / dashed = planned
