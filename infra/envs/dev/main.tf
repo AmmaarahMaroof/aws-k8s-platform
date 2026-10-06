@@ -61,3 +61,18 @@ module "registry" {
 output "ecr_repository_url" {
   value = module.registry.repository_url
 }
+
+module "compute" {
+  source             = "../../modules/compute"
+  name               = local.name
+  subnet_id          = module.network.public_subnet_id
+  security_group_ids = [module.network.app_security_group_id]
+}
+
+output "instance_id" {
+  value = module.compute.instance_id
+}
+
+output "public_ip" {
+  value = module.compute.public_ip
+}
