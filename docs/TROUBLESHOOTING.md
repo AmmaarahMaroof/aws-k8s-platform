@@ -90,17 +90,6 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 
 ---
 
-## Handy fixes
-
-| Symptom | Fix |
-|---|---|
-| Output stuck at `(END)` or `:` | Press `q`. For AWS CLI, disable the pager: `aws configure set cli_pager ""` |
-| Terminal shows `>` and waits | A multi-line paste was incomplete. Press Ctrl+C and paste the whole block |
-| `fatal: a branch named ... already exists` | `git checkout <branch>` instead of `git checkout -b` |
-| Git LFS hook warnings in a container without LFS | Remove the unused hooks: `rm -f .git/hooks/pre-push .git/hooks/post-*` |
-| Files created by a command don't exist | Check with `ls -la` / `cat` before moving on |
-
-
 ## Kubernetes
 
 ### 12. One API replica restarted once on first deploy
@@ -110,3 +99,22 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 - **Fix (current):** Documented. It only affects the very first start on an empty database, and Kubernetes self-heals it.
 - **Fix (proper, planned):** Run schema migrations once, as a separate Kubernetes Job or init step (e.g. Alembic), before the API rolls out, instead of every replica doing it at startup.
 - **Lesson:** A restart count above 0 is a clue, even when everything looks healthy. `--previous` is the first command for any restart. Startup code that is safe with one instance may not be safe with several.
+
+### 13. API pods crashed once on every fresh Helm install
+- **Symptom:** After `helm install`, both API pods went `Error` → restarted once at ~5s. Postgres only became Ready at ~7s.
+- **Diagnosis:** Compared timings in `kubectl get pods -w`; `kubectl logs <pod> --previous` showed a database connection error.
+- **Cause:** Helm creates everything at once. The API started before Postgres accepted connections, failed to create its tables, and exited. Kubernetes has no `depends_on` like Docker Compose.
+- **Fix:** Added an init container (`wait-for-db`) that loops on `pg_isready -h db` before the API container starts. Fresh installs now show `Init:0/1` → `1/1 Running` with 0 restarts.
+- **Lesson:** Kubernetes doesn't order startup between workloads. Use init containers for hard dependencies, and keep the app tolerant of dependencies being briefly unavailable.
+
+---
+
+## Handy fixes
+
+| Symptom | Fix |
+|---|---|
+| Output stuck at `(END)` or `:` | Press `q`. For AWS CLI, disable the pager: `aws configure set cli_pager ""` |
+| Terminal shows `>` and waits | A multi-line paste was incomplete. Press Ctrl+C and paste the whole block |
+| `fatal: a branch named ... already exists` | `git checkout <branch>` instead of `git checkout -b` |
+| Git LFS hook warnings in a container without LFS | Remove the unused hooks: `rm -f .git/hooks/pre-push .git/hooks/post-*` |
+| Files created by a command don't exist | Check with `ls -la` / `cat` before moving on |

@@ -25,6 +25,10 @@ spec:
       labels:
         app: api
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: {{ .Values.postgres.image }}
+          command: ["sh", "-c", "until pg_isready -h db -p 5432; do echo waiting for db; sleep 2; done"]
       containers:
         - name: api
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

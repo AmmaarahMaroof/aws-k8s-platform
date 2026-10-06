@@ -43,7 +43,7 @@ flowchart LR
     end
     dev -->|"minikube"| svcapi
 
-    helm["Helm chart"]:::planned
+    helm["Helm chart"]
     mig["DB migrations Job"]:::planned
     deploy["CI deploy to cluster<br/>on EC2 from ECR"]:::planned
     obs["Prometheus + Grafana"]:::planned
