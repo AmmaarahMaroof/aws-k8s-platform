@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # lets the job get an OIDC token for AWS
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false   # never run two deploys at once; queue them
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::099021515478:role/github-actions-deploy
+          aws-region: eu-west-2
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Work out image name
+        id: meta
+        run: echo "image=${{ steps.ecr.outputs.registry }}/uptime-monitor:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: docker build --provenance=false -t "${{ steps.meta.outputs.image }}" .
+
+      - name: Scan before pushing
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:latest image --exit-code 1 --severity CRITICAL --ignore-unfixed
+          "${{ steps.meta.outputs.image }}"
+
+      - name: Push
+        run: docker push "${{ steps.meta.outputs.image }}"

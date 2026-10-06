@@ -60,3 +60,61 @@ resource "aws_iam_role_policy" "state_lock" {
 output "github_plan_role_arn" {
   value = aws_iam_role.github_plan.arn
 }
+
+# ---------- Deploy role: ONLY workflows on main can assume it (not PRs) ----------
+
+data "aws_iam_policy_document" "github_deploy_trust" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:AmmaarahMaroof@143191112/aws-k8s-platform@1394704938:ref:refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_deploy" {
+  name                 = "github-actions-deploy"
+  assume_role_policy   = data.aws_iam_policy_document.github_deploy_trust.json
+  max_session_duration = 3600
+}
+
+data "aws_iam_policy_document" "ecr_push" {
+  statement {
+    sid       = "EcrLogin"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"] # AWS doesn't allow scoping this one action to a repo
+  }
+  statement {
+    sid = "PushToUptimeRepoOnly"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:PutImage",
+      "ecr:BatchGetImage",
+    ]
+    resources = ["arn:aws:ecr:eu-west-2:099021515478:repository/uptime-monitor"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_deploy_ecr" {
+  name   = "ecr-push"
+  role   = aws_iam_role.github_deploy.id
+  policy = data.aws_iam_policy_document.ecr_push.json
+}
+
+output "github_deploy_role_arn" {
+  value = aws_iam_role.github_deploy.arn
+}
