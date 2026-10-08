@@ -1,0 +1,17 @@
+# Our settings for the community kube-prometheus-stack chart (local minikube)
+
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors and alert rules from ANY Helm release,
+    # not only ones installed by this chart (ours come from the uptime chart)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 2d
+    resources:
+      requests: {cpu: 100m, memory: 400Mi}
+
+# These control-plane parts aren't reachable in minikube. Scraping them would only create permanently-firing "target down" alerts (noise).
+kubeEtcd: {enabled: false}
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeProxy: {enabled: false}

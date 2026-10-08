@@ -107,6 +107,26 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 - **Fix:** Added an init container (`wait-for-db`) that loops on `pg_isready -h db` before the API container starts. Fresh installs now show `Init:0/1` → `1/1 Running` with 0 restarts.
 - **Lesson:** Kubernetes doesn't order startup between workloads. Use init containers for hard dependencies, and keep the app tolerant of dependencies being briefly unavailable.
 
+### 14. Pods stuck in CreateContainerConfigError after rebuilding minikube
+- **Symptom:** The checker pod showed `CreateContainerConfigError`.
+- **Diagnosis:** `kubectl describe pod` → Events showed the Secret it references could not be found.
+- **Cause:** After `minikube delete`, everything in Git was redeployable, but the Secrets (created by hand, deliberately outside Git) were gone.
+- **Fix:** Recreated the Secrets; the pods recovered without a reinstall.
+- **Lesson:** Anything created by hand is the first thing missing after a rebuild. Secret creation belongs in the rebuild runbook.
+
+### 15. Kubernetes API refused connections after installing the monitoring stack
+- **Symptom:** `kubectl` watch dropped, then `connection to the server ... was refused`; three monitoring targets showed `connection refused`.
+- **Diagnosis:** `minikube status` and `free -h`: 6.6 of 7.8 GB used, 1.2 GB available, no swap.
+- **Cause:** kube-prometheus-stack plus the app needed more than a 2 CPU / 4 GB cluster could provide; components were starved and restarted.
+- **Fix:** Moved to a 4-core / 16 GB machine and gave minikube 4 CPUs / 8 GB. All targets came up.
+- **Lesson:** Observability has its own resource cost. Capacity planning includes the tools that watch the system (the same reason the stack isn't on the 2 GB EC2 instance).
+
+### 16. Status panel kept showing a deleted site as DOWN
+- **Symptom:** After deleting a site, the Grafana Stat panel still showed it as DOWN, although the API and Prometheus no longer had it.
+- **Cause:** The panel used a **range** query and showed the last value within the 30-minute window.
+- **Fix:** Changed the query type to **Instant** (the current value only).
+- **Lesson:** Range queries suit graphs over time; instant queries suit "what is the state right now" panels.
+
 ---
 
 ## Handy fixes

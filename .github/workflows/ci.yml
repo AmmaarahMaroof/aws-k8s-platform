@@ -65,6 +65,11 @@ jobs:
           terraform init -backend=false
           terraform validate
           
+      - name: Validate prod environment
+        working-directory: infra/envs/prod
+        run: |
+          terraform init -backend=false
+          terraform validate
 
   terraform-plan:
     runs-on: ubuntu-latest

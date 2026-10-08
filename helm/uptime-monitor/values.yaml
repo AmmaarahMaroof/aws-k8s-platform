@@ -35,3 +35,8 @@ imagePullSecrets: []
 ingress:
   enabled: false
   className: traefik
+
+# Prometheus scraping. Needs the Prometheus Operator (kube-prometheus-stack),
+# so it's off by default and turned on where that's installed.
+monitoring:
+  enabled: false

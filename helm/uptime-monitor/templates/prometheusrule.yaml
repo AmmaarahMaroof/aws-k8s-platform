@@ -1,0 +1,36 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: uptime-monitor
+  namespace: {{ .Release.Namespace }}
+spec:
+  groups:
+    - name: uptime-monitor
+      rules:
+        - alert: MonitoredSiteDown
+          expr: max by (site) (site_up) == 0      
+          for: 2m                                 # how long it must stay down before firing
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Site {{`{{ $labels.site }}`}} is down'
+            description: 'The latest check of {{`{{ $labels.site }}`}} has been failing for over 2 minutes.'
+
+        - alert: ApiPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[15m]) > 2
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Pod {{`{{ $labels.pod }}`}} restarted more than twice in 15 minutes'
+
+        - alert: ApiHighErrorRate
+          expr: sum(rate(http_requests_total{job="api",status=~"5.."}[5m])) / sum(rate(http_requests_total{job="api"}[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'More than 5% of API requests are failing'
+
+ {{- end }}
