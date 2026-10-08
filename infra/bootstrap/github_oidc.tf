@@ -118,3 +118,40 @@ resource "aws_iam_role_policy" "github_deploy_ecr" {
 output "github_deploy_role_arn" {
   value = aws_iam_role.github_deploy.arn
 }
+
+
+# ---------- Deploy role: permission to run the deploy on the server via SSM ----------
+
+data "aws_iam_policy_document" "ssm_deploy" {
+  statement {
+    sid       = "FindTheServer"
+    actions   = ["ec2:DescribeInstances"]
+    resources = ["*"] # Describe actions can't be scoped to a resource
+  }
+  statement {
+    sid       = "RunCommandsOnlyOnTheTaggedServer"
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ec2:eu-west-2:099021515478:instance/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ssm:resourceTag/Name"
+      values   = ["uptime-dev-server"]
+    }
+  }
+  statement {
+    sid       = "OnlyTheShellScriptDocument"
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ssm:eu-west-2::document/AWS-RunShellScript"]
+  }
+  statement {
+    sid       = "ReadCommandResults"
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_deploy_ssm" {
+  name   = "ssm-deploy"
+  role   = aws_iam_role.github_deploy.id
+  policy = data.aws_iam_policy_document.ssm_deploy.json
+}
