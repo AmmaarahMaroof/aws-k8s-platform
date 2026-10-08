@@ -1,0 +1,11 @@
+# Overrides for the AWS (k3s on EC2) environment
+image:
+  repository: 099021515478.dkr.ecr.eu-west-2.amazonaws.com/uptime-monitor   # your ECR repository URL
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ecr-pull
+
+ingress:
+  enabled: true

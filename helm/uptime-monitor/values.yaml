@@ -26,3 +26,12 @@ postgres:
   image: postgres:16-bookworm
   credentialsSecret: db-credentials
   storage: 1Gi
+
+
+# Credentials for pulling images from a private registry (empty locally)
+imagePullSecrets: []
+
+# Expose the API over HTTP via an Ingress (off locally; on in AWS)
+ingress:
+  enabled: false
+  className: traefik
