@@ -61,14 +61,14 @@ flowchart LR
 
     mig["DB migrations Job"]:::planned
     obs["Prometheus + Grafana"]:::planned
-    prod["prod environment"]:::planned
+    prod["prod environment"]
     mig -.-> pg
     obs -.->|"/metrics"| api
     prod -.-> aws
 
     classDef planned stroke-dasharray: 5 5,fill:#f5f5f5,color:#666
     classDef built fill:#e6f4ea,stroke:#34a853,color:#1e4620
-    class dev,repo,test,scan,tfcheck,tfplan,helmlint,push,deploy,oidc,deployrole,state,ecr,ec2,svcapi,api,cron,svcdb,pg,secret,helm built
+    class dev,repo,test,scan,tfcheck,tfplan,helmlint,push,deploy,prod,oidc,deployrole,state,ecr,ec2,svcapi,api,cron,svcdb,pg,secret,helm built
 ```
 
 🟩 Green = built · ⬜ Grey dashed = planned
@@ -83,7 +83,7 @@ flowchart LR
 - [ ] Phase 6: Kubernetes on AWS + automated deploys
   - [x] k3s bootstrapped on EC2 by Terraform `user_data`
   - [x] Merges to main push scanned, SHA-tagged images to ECR
-  - [ ] Auto-deploy to k3s with Helm via SSM
+  - [x] Auto-deploy to k3s with Helm via SSM
 - [ ] Phase 7: Monitoring and alerting
 - [ ] Phase 8: Security, backups, disaster recovery
 - [ ] Phase 9: Polish (runbook, lessons learned)
