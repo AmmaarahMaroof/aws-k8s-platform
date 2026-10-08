@@ -23,7 +23,7 @@ flowchart LR
 
     subgraph cd["Deploy on merge to main"]
         push["Build + scan,<br/>push SHA-tagged image"]
-        deploy["helm upgrade<br/>via SSM"]:::planned
+        deploy["helm upgrade<br/>via SSM"]
     end
     repo -->|"merge"| push
     push -.-> deploy
@@ -68,7 +68,7 @@ flowchart LR
 
     classDef planned stroke-dasharray: 5 5,fill:#f5f5f5,color:#666
     classDef built fill:#e6f4ea,stroke:#34a853,color:#1e4620
-    class dev,repo,test,scan,tfcheck,tfplan,helmlint,push,oidc,deployrole,state,ecr,ec2,svcapi,api,cron,svcdb,pg,secret,helm built
+    class dev,repo,test,scan,tfcheck,tfplan,helmlint,push,deploy,oidc,deployrole,state,ecr,ec2,svcapi,api,cron,svcdb,pg,secret,helm built
 ```
 
 🟩 Green = built · ⬜ Grey dashed = planned
