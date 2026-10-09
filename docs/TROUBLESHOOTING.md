@@ -132,6 +132,32 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 - **Fix:** `cidr_blocks = [var.http_allowed_cidr]`, i.e. reference variables with `var.` and no quotes.
 - **Lesson:** Quotes mean "this exact text"; `var.name` means "look up this value".
 
+### 18. Deploy failed with InvalidInstanceId right after starting the server
+- **Symptom:** Deploy job failed in "Deploy via SSM" with `InvalidInstanceId: Instances not in a valid state` (AWS CLI exit code 254).
+- **Diagnosis:** `aws ssm describe-instance-information` didn't show the instance as Online.
+- **Cause:** EC2 "running" only means the machine has booted. The SSM agent needs to register with AWS before it can receive commands. (In this case it never did, because of #19.)
+- **Fix:** Fixed #19, waited for the agent to show Online, then re-ran the failed job.
+- **Lesson:** "Running" isn't "ready" (the readiness-probe lesson again, at server level). Possible improvement: the workflow waits for SSM `PingStatus = Online` before deploying.
+
+### 19. SSM went offline after locking down the security group
+- **Symptom:** Deploys failed and `describe-instance-information` returned nothing, even with the server running.
+- **Diagnosis:** With no SSH or SSM access, read the boot log via `aws ec2 get-console-output`: the SSM agent got `dial tcp ...:443: i/o timeout` calling the SSM endpoint. `describe-security-groups` then showed ingress empty and egress set to my home IP.
+- **Cause:** When restricting port 80 (phase 8a), the CIDRs were swapped: my IP went on the egress rule and ingress lost its CIDR. The server couldn't reach AWS APIs, ECR or GitHub, and nobody could reach the app.
+- **Fix:** Ingress port 80 → allowed CIDR only; egress → `0.0.0.0/0`. SSM reconnected by itself.
+- **Lesson:** Ingress and egress are separate decisions. A security test must check that the control allows the right thing as well as blocks the wrong thing; a rule that blocks everything also passes a "blocked" test.
+
+### 20. Backup upload failed with AccessDenied
+- **Symptom:** `pg_dump` succeeded; the upload failed: `assumed-role/uptime-dev-ec2-role ... is not authorized to perform: s3:PutObject ... because no identity-based policy allows the s3:PutObject action`.
+- **Diagnosis:** The error showed credentials were working (correct assumed role) but no policy allowed the action. `aws iam list-role-policies` showed `db-backups` wasn't attached.
+- **Cause:** The policy is created conditionally (`count = var.backup_bucket_name == null ? 0 : 1`) and the dev environment wasn't passing the bucket name, so Terraform created zero copies.
+- **Fix:** Passed `backup_bucket_name` to the compute module and applied. The next backup uploaded.
+- **Lesson:** Read AWS AccessDenied errors in full: they name who, what, where and why. Conditional resources fail silently when their input is missing.
+
+### 21. Failed Job pod disappeared before its logs could be read
+- **Symptom:** `kubectl logs job/... -c upload` printed nothing; the pod showed `RESTARTS 2` then `Terminating`.
+- **Cause:** The container failed, restarted up to the Job's `backoffLimit`, then the Job gave up and deleted the pod, along with its logs.
+- **Fix:** Re-ran the Job and streamed its logs live with `kubectl logs -f`.
+- **Lesson:** Watch Job logs live, or check `kubectl get events`. In production, ship logs to a central store (e.g. Loki or CloudWatch) so they outlive the pod.
 ---
 
 ## Handy fixes
