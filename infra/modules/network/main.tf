@@ -45,7 +45,7 @@ resource "aws_security_group" "app" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = []
   }
 
   egress {
@@ -53,7 +53,7 @@ resource "aws_security_group" "app" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.http_allowed_cidr]
   }
 
   tags = { Name = "${var.name}-app-sg" }

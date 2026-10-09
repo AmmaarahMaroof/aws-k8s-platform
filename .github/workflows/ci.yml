@@ -96,6 +96,8 @@ jobs:
 
       - name: Terraform plan (dev)
         working-directory: infra/envs/dev
+        env:
+          TF_VAR_http_allowed_cidr: ${{ secrets.HTTP_ALLOWED_CIDR }}
         run: |
           terraform init -input=false
           terraform plan -input=false -no-color
