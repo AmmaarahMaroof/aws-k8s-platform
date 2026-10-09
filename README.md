@@ -85,10 +85,11 @@ flowchart LR
   - [x] Merges to main push scanned, SHA-tagged images to ECR
   - [x] Auto-deploy to k3s with Helm via SSM
 - [x] Phase 7: Monitoring and alerting
-- [ ] Phase 8: Security, backups, disaster recovery
+- [x] Phase 8: Security, backups, disaster recovery
 - [ ] Phase 9: Polish (runbook, lessons learned)
 
 ## Docs
 - [How the app works](docs/APP.md)
 - [Security decisions and vulnerability triage](docs/SECURITY.md)
 - [Troubleshooting log: real issues and how they were fixed](docs/TROUBLESHOOTING.md)
+- [Runbook: deploy, rollback, restore, disaster recovery](docs/RUNBOOK.md)
