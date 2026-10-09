@@ -3,7 +3,12 @@ name: Deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # adds a "Run workflow" button to re-deploy by hand
+    paths-ignore:          # changes that can't affect the running app don't deploy
+      - "docs/**"
+      - "infra/**"
+      - "monitoring/**"
+      - "README.md"
+  workflow_dispatch:       # "Run workflow" button: redeploy what's on main
 
 permissions:
   id-token: write   # lets the job get an OIDC token for AWS
@@ -33,16 +38,32 @@ jobs:
         id: meta
         run: echo "image=${{ steps.ecr.outputs.registry }}/uptime-monitor:${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
+      # Tags are immutable, so if this commit's image already exists, reuse it.
+      # This makes "Run workflow" a true redeploy (DR finding #22).
+      - name: Check if this commit's image already exists
+        id: exists
+        run: |
+          if docker manifest inspect "${{ steps.meta.outputs.image }}" > /dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Image already in ECR, skipping build"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Image not in ECR yet, building"
+          fi
+
       - name: Build
+        if: steps.exists.outputs.skip != 'true'
         run: docker build --provenance=false -t "${{ steps.meta.outputs.image }}" .
 
       - name: Scan before pushing
+        if: steps.exists.outputs.skip != 'true'
         run: >
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
           aquasec/trivy:latest image --exit-code 1 --severity CRITICAL --ignore-unfixed
           "${{ steps.meta.outputs.image }}"
 
       - name: Push
+        if: steps.exists.outputs.skip != 'true'
         run: docker push "${{ steps.meta.outputs.image }}"
 
   deploy:
