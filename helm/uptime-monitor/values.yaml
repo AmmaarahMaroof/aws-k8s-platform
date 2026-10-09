@@ -40,3 +40,14 @@ ingress:
 # so it's off by default and turned on where that's installed.
 monitoring:
   enabled: false
+
+
+# Nightly database backup to S3 (needs AWS credentials, so it's off by default
+# and turned on in values-aws.yaml)
+backup:
+  enabled: false
+  schedule: "0 2 * * *"          # every day at 02:00 (cron: minute hour day month weekday)
+  bucket: ""
+  region: eu-west-2
+  awsCliImage: amazon/aws-cli:latest   # pin to a specific version once tested
+

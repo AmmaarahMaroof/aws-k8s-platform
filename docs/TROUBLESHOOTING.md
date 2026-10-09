@@ -127,6 +127,11 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 - **Fix:** Changed the query type to **Instant** (the current value only).
 - **Lesson:** Range queries suit graphs over time; instant queries suit "what is the state right now" panels.
 
+### 17. "is not a valid CIDR block: http_allowed_cidr"
+- **Cause:** Wrote `cidr_blocks = ["http_allowed_cidr"]`. The quotes made Terraform use the literal text instead of the variable's value.
+- **Fix:** `cidr_blocks = [var.http_allowed_cidr]`, i.e. reference variables with `var.` and no quotes.
+- **Lesson:** Quotes mean "this exact text"; `var.name` means "look up this value".
+
 ---
 
 ## Handy fixes

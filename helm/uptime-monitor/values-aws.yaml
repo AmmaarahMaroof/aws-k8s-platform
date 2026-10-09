@@ -9,3 +9,7 @@ imagePullSecrets:
 
 ingress:
   enabled: true
+
+backup:
+  enabled: true
+  bucket: uptime-monitor-db-backups-099021515478
