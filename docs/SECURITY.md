@@ -55,6 +55,8 @@ All critical findings were in **base-image OS packages**, not application code.
 - Images are scanned on push; old images are removed by a lifecycle policy
 - Containers run as a **non-root user**
 - No long-lived AWS access keys: people use short-lived console sign-in credentials, and CI uses OIDC with a read-only role
+- **Restricted ingress (Oct 2026):** port 80 is open only to a single allowed CIDR. The value has no default (so it can't silently fall back to open), is kept out of the public repo (gitignored tfvars locally, GitHub secret in CI), and is masked in Actions logs. Verified: allowed IP reaches the app, other IPs time out. Trade-off: home IPs can change. In production this would be authentication or a load balancer with a WAF instead.
+
 
 ## Follow-ups
 

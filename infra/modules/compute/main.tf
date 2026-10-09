@@ -36,6 +36,35 @@ resource "aws_iam_role" "this" {
   assume_role_policy = data.aws_iam_policy_document.ec2_trust.json
 }
 
+# Backups: upload and read (for restores), but NO delete, so a compromised
+# server can't wipe its own backups.
+resource "aws_iam_role_policy" "db_backups" {
+  count = var.backup_bucket_name == null ? 0 : 1
+  name  = "db-backups"
+  role  = aws_iam_role.this.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "WriteAndReadBackups"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = "arn:aws:s3:::${var.backup_bucket_name}/postgres/*"
+      },
+      {
+        Sid      = "ListBackups"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::${var.backup_bucket_name}"
+        Condition = {
+          StringLike = { "s3:prefix" = ["postgres/*"] }
+        }
+      }
+    ]
+  })
+}
+
 # Lets us open a shell through AWS Systems Manager: no SSH keys, no port 22
 resource "aws_iam_role_policy_attachment" "ssm" {
   role       = aws_iam_role.this.name

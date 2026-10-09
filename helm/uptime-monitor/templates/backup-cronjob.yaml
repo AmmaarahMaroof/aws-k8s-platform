@@ -1,0 +1,57 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+            - name: dump
+              emptyDir: {}            # scratch space shared by the two steps
+          initContainers:
+            # Step 1: dump the database to a file
+            - name: pg-dump
+              image: {{ .Values.postgres.image }}
+              envFrom:
+                - secretRef:
+                    name: {{ .Values.postgres.credentialsSecret }}
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.postgres.credentialsSecret }}
+                      key: POSTGRES_PASSWORD
+              command:
+                - sh
+                - -c
+                - pg_dump -h db -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /dump/uptime.dump && ls -l /dump
+              volumeMounts:
+                - name: dump
+                  mountPath: /dump
+          containers:
+            # Step 2: upload it to S3 with a timestamped name
+            - name: upload
+              image: {{ .Values.backup.awsCliImage }}
+              env:
+                - name: BUCKET
+                  value: {{ .Values.backup.bucket | quote }}
+                - name: AWS_REGION
+                  value: {{ .Values.backup.region | quote }}
+              command:
+                - sh
+                - -c
+                - aws s3 cp /dump/uptime.dump "s3://$BUCKET/postgres/uptime-$(date -u +%Y%m%dT%H%M%SZ).dump" && echo "backup uploaded"
+              volumeMounts:
+                - name: dump
+                  mountPath: /dump
+{{- end }}
