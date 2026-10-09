@@ -60,6 +60,14 @@ All critical findings were in **base-image OS packages**, not application code.
 
 ## Follow-ups
 
-- [ ] Push the rebuilt image to ECR and record its scan results here
-- [ ] Rebuild the image regularly (`docker build --pull`) to pick up base-image patches
+- [x] Push the rebuilt image to ECR and record its scan results here
+- [x] Every merge builds on a fresh runner, so it pulls the current base image (no cached layers)
 - [ ] Consider moving to a newer Debian base image or a smaller runtime image to reduce OS packages
+
+## IAM review (least privilege), 9 Oct 2026
+
+| Role | Who uses it | Can do | Can't do | Why it's scoped like this |
+|---|---|---|---|---|
+| GitHub plan role | CI on PRs + main | read-only | write anything | PR from a branch must never be able to change real infrastructure. |
+| `github-actions-deploy` | Deploy workflow, **main only** | push to one ECR repo, SSM SendCommand to instances tagged `uptime-dev-server` | create/delete infra, touch any other repo, or run commands on untagged instances | if the pipeline is compromised, the blast radius is one repo and one server. |
+| `uptime-dev-ec2-role` | the server | SSM agent, pull from ECR, Put/Get backups under `postgres/` | delete backups or list other prefixes | if the server is compromised, the attacker can't wipe the backups |

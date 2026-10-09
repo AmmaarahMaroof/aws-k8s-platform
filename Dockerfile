@@ -1,5 +1,5 @@
 # ---------- Stage 1: install dependencies ----------
-FROM python:3.12-slim-bookworm AS builder
+FROM public.ecr.aws/docker/library/python:3.12-slim-bookworm AS builder
 
 WORKDIR /build
 # Only the runtime requirements (no pytest in production)
@@ -7,7 +7,7 @@ COPY app/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---------- Stage 2: the image that actually runs ----------
-FROM python:3.12-slim-bookworm
+FROM public.ecr.aws/docker/library/python:3.12-slim-bookworm
 
 # Apply all pending Debian security updates (see docs/SECURITY.md)
 RUN apt-get update \
