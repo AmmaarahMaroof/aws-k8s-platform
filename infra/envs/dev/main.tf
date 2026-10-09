@@ -73,6 +73,7 @@ module "compute" {
   name               = local.name
   subnet_id          = module.network.public_subnet_id
   security_group_ids = [module.network.app_security_group_id]
+  backup_bucket_name = "uptime-monitor-db-backups-099021515478"
 }
 
 output "instance_id" {
