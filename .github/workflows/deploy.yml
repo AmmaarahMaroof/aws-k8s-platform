@@ -3,6 +3,11 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "infra/**"
+      - "README.md"
+      - "monitoring/**"
   workflow_dispatch:   # adds a "Run workflow" button to re-deploy by hand
 
 permissions:
