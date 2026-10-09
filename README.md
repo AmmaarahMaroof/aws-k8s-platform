@@ -92,4 +92,4 @@ flowchart LR
 - [How the app works](docs/APP.md)
 - [Security decisions and vulnerability triage](docs/SECURITY.md)
 - [Troubleshooting log: real issues and how they were fixed](docs/TROUBLESHOOTING.md)
-- [Runbook: deploy, rollback, restore, disaster recovery](docs/RUNBOOK.md)
+- [Runbook](docs/RUNBOOK.md): deploy, rollback, alerts, backups and restore, disaster recovery (tested: full rebuild + restore in ≈17 min)

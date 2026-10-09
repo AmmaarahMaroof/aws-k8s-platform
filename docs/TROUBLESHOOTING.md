@@ -166,6 +166,22 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 - **Fix:** The workflow now checks ECR first (`aws ecr batch-get-image`) and skips build, scan and push if the commit's image already exists, so "Run workflow" works as a pure redeploy.
 - **Lesson:** This is exactly what DR tests are for. The pipeline worked for normal releases, but not for "redeploy the current version onto new infrastructure", the main thing you need in a recovery.
 
+**Follow-up (fix verification):** two more failed runs before the fix worked:
+1. "Re-run jobs" on the old failed run replays the original commit *and its original workflow file*, so it can't pick up a fix merged later. Use **Run workflow** for a new run on the latest `main`.
+2. The fix commit had been made on local `main`, so it never reached GitHub (`git push` was rejected by the branch ruleset). `git show origin/main:<file>` shows what's really on main. Moved the commit to a branch and merged it via PR.
+3. The existence check was switched from `aws ecr batch-get-image` to `docker manifest inspect`.
+
+## 23. CI lint failed on code nobody changed
+
+**Symptom:** the PR changed only `deploy.yml`, but the `test` job failed at Lint: `UP017 Use datetime.UTC alias` in `app/models.py`.
+
+**Cause:** ruff wasn't pinned in CI, so every run installed the latest version. A new release enforced UP017 (`timezone.utc` → `datetime.UTC`) on existing code.
+
+**Fix:** `ruff check app tests --fix`, then pinned ruff's version in `ci.yml`.
+
+**Lesson:** pin tool versions in CI. Builds should only fail when *our* code changes.
+
+**Verified:** Run workflow on 9 Oct 2026 deployed successfully without rebuilding.
 ---
 
 ## Handy fixes
