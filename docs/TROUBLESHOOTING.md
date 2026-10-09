@@ -158,6 +158,14 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 - **Cause:** The container failed, restarted up to the Job's `backoffLimit`, then the Job gave up and deleted the pod, along with its logs.
 - **Fix:** Re-ran the Job and streamed its logs live with `kubectl logs -f`.
 - **Lesson:** Watch Job logs live, or check `kubectl get events`. In production, ship logs to a central store (e.g. Loki or CloudWatch) so they outlive the pod.
+
+### 22. DR test: "Run workflow" couldn't redeploy because the image tag already existed
+- **Symptom:** During the disaster-recovery test, the manual Deploy run failed at Push: `tag ... already exists ... cannot be overwritten because the tag is immutable`.
+- **Cause:** The workflow always rebuilt and pushed the image for the current commit. That commit's image was already in ECR, and immutable tags (correctly) refuse overwrites, so the job failed before deploying.
+- **Workaround:** Ran the same deploy script by hand on the new server via SSM, using the existing image.
+- **Fix:** The workflow now checks ECR first (`aws ecr batch-get-image`) and skips build, scan and push if the commit's image already exists, so "Run workflow" works as a pure redeploy.
+- **Lesson:** This is exactly what DR tests are for. The pipeline worked for normal releases, but not for "redeploy the current version onto new infrastructure", the main thing you need in a recovery.
+
 ---
 
 ## Handy fixes
