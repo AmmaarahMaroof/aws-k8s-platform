@@ -35,6 +35,11 @@ locals {
   name = "uptime-dev"
 }
 
+variable "http_allowed_cidr" {
+  description = "Your IP/32, allowed to reach the app on port 80. Set in terraform.tfvars (gitignored) or TF_VAR_http_allowed_cidr."
+  type        = string
+}
+
 # Use the network module with dev's values
 module "network" {
   source = "../../modules/network"
@@ -43,6 +48,7 @@ module "network" {
   vpc_cidr           = "10.0.0.0/16"
   public_subnet_cidr = "10.0.1.0/24"
   availability_zone  = "eu-west-2a"
+  http_allowed_cidr  = var.http_allowed_cidr
 }
 
 output "vpc_id" {
