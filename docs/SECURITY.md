@@ -11,6 +11,14 @@ The two scanners use different vulnerability databases, so their CVE lists and c
 
 ## Triage log
 
+### Known unfixed vulnerabilities (accepted), 12 Oct 2026
+| CVE | Package | Why accepted |
+|---|---|---|
+| CVE-2025-7458 | libsqlite3-0 | No Debian fix available yet. The app doesn't use SQLite (Postgres only); it comes from the base image. Re-check when Debian patches it. |
+| CVE-2023-45853 | zlib1g | Debian: will_not_fix. The flaw is in minizip, which this package doesn't ship. |
+
+CI uses `--ignore-unfixed`: builds fail on any CRITICAL that has a fix available.
+
 ### 5 Oct 2026: Perl fixes released, CI gate blocked the build
 
 Debian released `perl-base 5.36.0-7+deb12u4`, fixing critical Perl CVEs that had no fix at the 30 Sep triage.
