@@ -1,0 +1,16 @@
+image:
+  repository: 099021515478.dkr.ecr.eu-west-2.amazonaws.com/uptime-monitor  # your ECR repo URL (same as values-aws.yaml)
+  tag: "d01d633f2faad1d4537e6e924a3e0965fd9571cd"                 # the SHA from Part B, in quotes
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ecr-pull                # the docker-registry secret you created
+
+ingress:
+  enabled: false               # minikube has no Traefik
+
+monitoring:
+  enabled: false             # turn on in step 3, once Prometheus is installed
+
+backup:
+  enabled: false               # backups need the EC2 role, which minikube doesn't have

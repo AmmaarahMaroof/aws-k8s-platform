@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: uptime
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AmmaarahMaroof/aws-k8s-platform.git
+    targetRevision: main          # which branch Argo follows
+    path: helm/uptime-monitor                    # folder of your Helm chart
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-gitops.yaml                    # your new GitOps values file
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: uptime
+  syncPolicy:
+    automated:
+      prune: true                # delete things that were removed from Git
+      selfHeal: true              # undo manual changes to the cluster
