@@ -60,7 +60,7 @@ jobs:
         run: >
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
           public.ecr.aws/aquasecurity/trivy:0.56.2
-          image --exit-code 1 --severity CRITICAL --ignore-unfixed--no-progress
+          image --exit-code 1 --severity CRITICAL --ignore-unfixed --no-progress
           "${{ steps.meta.outputs.image }}"
 
       - name: Push
