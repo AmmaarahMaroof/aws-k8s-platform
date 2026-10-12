@@ -11,6 +11,14 @@ The two scanners use different vulnerability databases, so their CVE lists and c
 
 ## Triage log
 
+### Known unfixed vulnerabilities (accepted), 12 Oct 2026
+| CVE | Package | Why accepted |
+|---|---|---|
+| CVE-2025-7458 | libsqlite3-0 | No Debian fix available yet. The app doesn't use SQLite (Postgres only); it comes from the base image. Re-check when Debian patches it. |
+| CVE-2023-45853 | zlib1g | Debian: will_not_fix. The flaw is in minizip, which this package doesn't ship. |
+
+CI uses `--ignore-unfixed`: builds fail on any CRITICAL that has a fix available.
+
 ### 5 Oct 2026: Perl fixes released, CI gate blocked the build
 
 Debian released `perl-base 5.36.0-7+deb12u4`, fixing critical Perl CVEs that had no fix at the 30 Sep triage.
@@ -60,6 +68,14 @@ All critical findings were in **base-image OS packages**, not application code.
 
 ## Follow-ups
 
-- [ ] Push the rebuilt image to ECR and record its scan results here
-- [ ] Rebuild the image regularly (`docker build --pull`) to pick up base-image patches
+- [x] Push the rebuilt image to ECR and record its scan results here
+- [x] Every merge builds on a fresh runner, so it pulls the current base image (no cached layers)
 - [ ] Consider moving to a newer Debian base image or a smaller runtime image to reduce OS packages
+
+## IAM review (least privilege), 9 Oct 2026
+
+| Role | Who uses it | Can do | Can't do | Why it's scoped like this |
+|---|---|---|---|---|
+| GitHub plan role | CI on PRs + main | read-only | write anything | PR from a branch must never be able to change real infrastructure. |
+| `github-actions-deploy` | Deploy workflow, **main only** | push to one ECR repo, SSM SendCommand to instances tagged `uptime-dev-server` | create/delete infra, touch any other repo, or run commands on untagged instances | if the pipeline is compromised, the blast radius is one repo and one server. |
+| `uptime-dev-ec2-role` | the server | SSM agent, pull from ECR, Put/Get backups under `postgres/` | delete backups or list other prefixes | if the server is compromised, the attacker can't wipe the backups |
