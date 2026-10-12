@@ -2,8 +2,6 @@
 
 An end-to-end DevOps platform project: a FastAPI + PostgreSQL app, containerised with Docker, tested and scanned in GitHub Actions, packaged as a Helm chart, and deployed to Kubernetes on AWS infrastructure built with Terraform.
 
-🚧 Work in progress: see the roadmap below.
-
 ## Architecture
 
 ```mermaid
@@ -86,7 +84,7 @@ flowchart LR
   - [x] Auto-deploy to k3s with Helm via SSM
 - [x] Phase 7: Monitoring and alerting
 - [x] Phase 8: Security, backups, disaster recovery
-- [ ] Phase 9: Polish (runbook, lessons learned)
+- [x] Phase 9: Polish (runbook)
 
 ## Docs
 - [How the app works](docs/APP.md)
