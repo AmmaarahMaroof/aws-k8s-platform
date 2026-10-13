@@ -1,7 +1,6 @@
 image:
   repository: 099021515478.dkr.ecr.eu-west-2.amazonaws.com/uptime-monitor  # your ECR repo URL (same as values-aws.yaml)
-  tag: "gameday-does-not-exist"
-  # # "d01d633f2faad1d4537e6e924a3e0965fd9571cd"                 # the SHA from Part B, in quotes
+  tag: "d01d633f2faad1d4537e6e924a3e0965fd9571cd"                 # the SHA from Part B, in quotes
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
