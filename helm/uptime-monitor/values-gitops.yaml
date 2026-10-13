@@ -3,6 +3,9 @@ image:
   tag: "d01d633f2faad1d4537e6e924a3e0965fd9571cd"                 # the SHA from Part B, in quotes
   pullPolicy: IfNotPresent
 
+api:
+  replicas: 3
+
 imagePullSecrets:
   - name: ecr-pull                # the docker-registry secret you created
 
