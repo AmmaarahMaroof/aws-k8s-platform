@@ -84,12 +84,15 @@ jobs:
             --filters "Name=tag:Name,Values=uptime-dev-server" "Name=instance-state-name,Values=running" \
             --query "Reservations[].Instances[].InstanceId" --output text)
           if [ -z "$ID" ]; then
-            echo "::error::No running server. Start it, then use 'Re-run jobs' or 'Run workflow'."
-            exit 1
+            echo "::warning::Server is stopped (to save cost), so the deploy was skipped. The image is in ECR; start the server and use 'Run workflow' to deploy it."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "id=$ID" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Deploy via SSM
+        if: steps.server.outputs.skip != 'true'
         env:
           ID: ${{ steps.server.outputs.id }}
           SHA: ${{ github.sha }}
@@ -118,3 +121,12 @@ jobs:
             --query "[StandardOutputContent, StandardErrorContent]" --output text
           echo "== Status: $STATUS"
           [ "$STATUS" = "Success" ]
+
+
+    paths-ignore:
+      - "docs/**"
+      - "infra/**"
+      - "monitoring/**"
+      - "README.md"
+      - "gitops/**"                                  # Argo CD config (minikube only)
+      - "helm/uptime-monitor/values-gitops.yaml"     # minikube-only values
