@@ -10,7 +10,7 @@ ingress:
   enabled: false               # minikube has no Traefik
 
 monitoring:
-  enabled: false             # turn on in step 3, once Prometheus is installed
+  enabled: true             # turn on in step 3, once Prometheus is installed
 
 backup:
   enabled: false               # backups need the EC2 role, which minikube doesn't have
