@@ -96,6 +96,23 @@ flowchart LR
 
 *Prices are approximate for eu-west-2 (London), checked October 2026. See the AWS pricing pages for current figures.*
 
+## GitOps with Argo CD
+
+On the local minikube cluster, deployments are **pulled** by Argo CD from `main` instead of being **pushed** by CI.
+The Argo CD `Application` is defined in [`gitops/uptime-app.yaml`](gitops/uptime-app.yaml) and uses the Helm chart with
+[`values-gitops.yaml`](helm/uptime-monitor/values-gitops.yaml). Secrets are still created out-of-band, never stored in Git.
+
+| Test | What I did | Result |
+|---|---|---|
+| **Self-heal** | `kubectl scale deployment api --replicas=5` by hand | Argo reverted it to the Git value within seconds |
+| **Deploy by Git** | Merged a PR changing API replicas to 3 (#27) | Argo synced automatically and started a third pod, no manual step |
+| **Rollback by Git** | `git revert` of that commit, merged via PR (#28) | Argo scaled back to 2 pods |
+
+**Why GitOps:** Git is the single source of truth for what's running. A rollback is a `git revert`, every change is reviewed in a PR, and the cluster only needs to *read* Git instead of CI holding cluster credentials.
+
+![Argo CD synced and healthy](docs/images/argocd-synced.png)
+
+
 ## Roadmap
 - [x] Dev environment defined as code (devcontainer)
 - [x] Phase 1: Linux and networking basics

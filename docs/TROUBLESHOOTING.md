@@ -184,6 +184,65 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Verified:** Run workflow on 9 Oct 2026 deployed successfully without rebuilding.
 ---
 
+## 24. CI broke repeatedly on a docs-only PR: rate limits, then my own fixes
+
+**Symptom:** the Phase 9 PR (README/docs only) failed `build-and-scan` several times in a row, for different reasons.
+
+**What happened, in order:**
+1. **Docker Hub rate limit:** `429 Too Many Requests` pulling `python:3.12-slim-bookworm`. Docker Hub limits anonymous pulls per IP, and GitHub's shared runners hit it.
+   **Fix:** pulled the base image from the AWS mirror instead: `public.ecr.aws/docker/library/python:3.12-slim-bookworm`.
+2. **Same limit, different image:** the Trivy scanner (`aquasec/trivy:latest`) also came from Docker Hub.
+   **Fix:** `public.ecr.aws/aquasecurity/trivy:0.56.2`, pinned instead of `:latest` (same lesson as #23).
+3. **Lost arguments while editing:** Trivy printed its help text and `image: command not found`. A line-ending `\` had been dropped, so bash ran the next line as a separate command. In `deploy.yml` the `image --exit-code 1 --severity CRITICAL` arguments had been deleted entirely, which would have silently turned the security gate off.
+   **Fix:** restored the `\` line continuations and the arguments.
+4. **A typo:** `unknown flag: --ignore-unfixed--no-progress` (a missing space).
+5. **Real findings:** once the scan ran properly, it found 2 CRITICALs in base-image OS packages, `libsqlite3-0` (CVE-2025-7458, no fix yet) and `zlib1g` (CVE-2023-45853, Debian: will_not_fix). Neither has a patch available; the app doesn't use SQLite.
+   **Fix:** `--ignore-unfixed` in both workflows (fail on fixable criticals only), with the accepted CVEs and reasons documented in SECURITY.md.
+
+**Lessons:**
+- CI depends on external services (registries, vulnerability databases). Know which ones, and have a fallback.
+- Pin tool versions; `:latest` can change under you.
+- When editing a security gate, check it still *fails* when it should. A scan with no `--exit-code` passes everything.
+- Don't switch a gate off to get green; decide what it should block, and document the exceptions.
+
+## 25. Argo CD UI "refused to connect" on localhost:8080
+
+**Symptom:** `kubectl port-forward` was running and logging connections, but the browser showed `ERR_CONNECTION_REFUSED` at `localhost:8080`.
+
+**Cause:** the port-forward runs in the codespace; `localhost` in the browser meant my Mac, where nothing listens. Argo CD also only serves HTTPS.
+
+**Fix:** opened the port from the codespace **Ports** tab and changed its protocol to **HTTPS**.
+
+**Lesson:** "localhost" is whichever machine you're on. Always check which machine a port is actually forwarded to.
+
+## 26. CI scan failed: `toomanyrequests` pulling Trivy from ECR Public
+
+**Symptom:** `docker: toomanyrequests: Rate exceeded` in the Trivy scan step, on a PR that only changed YAML.
+
+**Cause:** ECR Public also rate-limits anonymous pulls, and GitHub's shared runners can hit the limit. It's looser than Docker Hub (#24), but not unlimited.
+
+**Fix:** re-ran the failed job.
+
+**Next step if it recurs:** install Trivy with the pinned `aquasecurity/setup-trivy` action instead of pulling a container image.
+
+## 27. `no route to host` on 192.168.49.2:8443 after the codespace slept
+
+**Symptom:** every `kubectl` command failed with `dial tcp 192.168.49.2:8443: connect: no route to host`.
+
+**Cause:** minikube stops when the codespace stops. The ECR pull token in the `ecr-pull` secret had also expired (tokens last 12 hours).
+
+**Fix:** `minikube start`, then recreated the `ecr-pull` secret. Argo CD and the app came back by themselves.
+
+**Lesson:** a local cluster doesn't survive the machine sleeping; anything with a short-lived credential needs refreshing.
+
+## 28. `aws login` redirected to 127.0.0.1 and failed
+
+**Symptom:** after signing in, the browser went to `127.0.0.1:44085/oauth/callback?...` and showed "refused to connect".
+
+**Cause:** plain `aws login` expects the browser and CLI on the same machine. The CLI was in the codespace, the browser on my Mac (same root cause as #25).
+
+**Fix:** `aws login --remote`, which shows a code to paste back into the terminal instead of redirecting.
+
 ## Handy fixes
 
 | Symptom | Fix |
