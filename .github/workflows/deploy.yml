@@ -8,6 +8,8 @@ on:
       - "infra/**"
       - "monitoring/**"
       - "README.md"
+      - "gitops/**"                                  # Argo CD config (minikube only)
+      - "helm/uptime-monitor/values-gitops.yaml"   
   workflow_dispatch:       # "Run workflow" button: redeploy what's on main
 
 permissions:
@@ -121,12 +123,3 @@ jobs:
             --query "[StandardOutputContent, StandardErrorContent]" --output text
           echo "== Status: $STATUS"
           [ "$STATUS" = "Success" ]
-
-
-    paths-ignore:
-      - "docs/**"
-      - "infra/**"
-      - "monitoring/**"
-      - "README.md"
-      - "gitops/**"                                  # Argo CD config (minikube only)
-      - "helm/uptime-monitor/values-gitops.yaml"     # minikube-only values
