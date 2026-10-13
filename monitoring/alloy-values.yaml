@@ -1,5 +1,7 @@
  # installed with grafana/alloy 1.13.1 
-
+controller:
+  type: deployment     # one central collector, instead of one per node
+  replicas: 1
 alloy:
   configMap:
     content: |-

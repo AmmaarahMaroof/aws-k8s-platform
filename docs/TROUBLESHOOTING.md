@@ -184,6 +184,7 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Verified:** Run workflow on 9 Oct 2026 deployed successfully without rebuilding.
 ---
 
+<<<<<<< Updated upstream
 ## 24. CI broke repeatedly on a docs-only PR: rate limits, then my own fixes
 
 **Symptom:** the Phase 9 PR (README/docs only) failed `build-and-scan` several times in a row, for different reasons.
@@ -242,6 +243,33 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Cause:** plain `aws login` expects the browser and CLI on the same machine. The CLI was in the codespace, the browser on my Mac (same root cause as #25).
 
 **Fix:** `aws login --remote`, which shows a code to paste back into the terminal instead of redirecting.
+=======
+
+>>>>>>> Stashed changes
+
+## 29. Grafana: `lookup loki.monitoring.svc: no such host`
+
+**Symptom:** the Loki data source was added to Grafana, but every query failed with `dial tcp: lookup loki.monitoring.svc on 10.96.0.10:53: no such host`.
+
+**Cause:** Loki and Alloy had never actually been installed. Grafana was pointing at a Service that didn't exist. (`helm list -n monitoring` showed only `kube-prom`.)
+
+**Fix:** dry-ran both charts with `helm template` to validate the values, then installed Loki (chart 7.3.0) and Alloy (chart 1.13.1).
+
+**Lesson:** check the thing exists (`helm list`, `kubectl get svc`) before debugging how you connect to it. A DNS "no such host" inside a cluster usually means the Service name or namespace is wrong, or the Service isn't there at all.
+
+## 30. Every log line appeared twice in Grafana
+
+**Symptom:** each log line showed up twice in Loki, with identical timestamps.
+
+**Narrowing it down:**
+1. `kubectl -n uptime logs deploy/api` showed each line **once**, so the app was fine and the duplication was in the pipeline.
+2. `kubectl -n monitoring get pods | grep alloy` showed **2 Alloy pods**.
+
+**Cause:** `loki.source.kubernetes` reads logs through the Kubernetes API, so *each* Alloy pod collected from *every* pod in the cluster, and Loki received everything twice.
+
+**Fix:** run Alloy as a single-replica Deployment (`controller.type: deployment`, `replicas: 1`). New lines now appear once; lines received before the fix stay duplicated.
+
+**Lesson:** compare the source with the pipeline to find where duplication starts. Know whether a collector works per node or cluster-wide before scaling it.
 
 ## Handy fixes
 

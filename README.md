@@ -110,7 +110,26 @@ The Argo CD `Application` is defined in [`gitops/uptime-app.yaml`](gitops/uptime
 
 **Why GitOps:** Git is the single source of truth for what's running. A rollback is a `git revert`, every change is reviewed in a PR, and the cluster only needs to *read* Git instead of CI holding cluster credentials.
 
-![Argo CD synced and healthy](docs/images/argocd-synced.png)
+
+## Logging (Loki + Alloy)
+
+Every pod's logs are collected by **Grafana Alloy** and stored in **Loki**, searchable in Grafana next to the Prometheus metrics.
+
+
+Logs are labelled with `namespace`, `pod`, `container` and `app`, so you can go from an alert straight to the right lines:
+
+| Query (LogQL) | Shows |
+|---|---|
+| `{namespace="uptime", app="api"}` | all API logs |
+| `{namespace="uptime", app="api"} != "/health" != "/ready"` | real traffic, without probe noise |
+| `{namespace="uptime"} \|~ "(?i)error\|warn"` | errors and warnings only |
+
+Install (versions pinned):
+```bash
+helm upgrade --install loki  grafana/loki  --version 7.3.0  -n monitoring -f monitoring/loki-values.yaml
+helm upgrade --install alloy grafana/alloy --version 1.13.1 -n monitoring -f monitoring/alloy-values.yaml
+```
+
 
 
 ## Roadmap
