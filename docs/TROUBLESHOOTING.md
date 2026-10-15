@@ -281,7 +281,30 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
  
 **Lesson:** valid YAML isn't the same as a valid workflow. Use `actionlint` to check workflow rules. If a run shows the file path instead of the workflow name, the workflow file itself is broken.
  
- 
+ ## 32. Browser logins from the codespace fail with "localhost refused to connect"
+
+**Symptom:** after signing in to Claude Code (`claude`), the browser went to `localhost:34101/callback?code=...` and showed `ERR_CONNECTION_REFUSED`. The same thing happened earlier with `aws login` (#28).
+
+**Cause:** these tools start a small callback server *inside the codespace* and redirect the browser to `localhost` to hand over the login code. My browser runs on my Mac, so `localhost` pointed at the Mac, where nothing was listening.
+
+**Fix:** either use the tool's remote/paste-code option (`aws login --remote`), or copy the full callback URL from the browser and send it to the codespace myself:
+`curl "http://localhost:<port>/callback?code=..."` in a second codespace terminal. The code is single-use and short-lived, so do it straight away.
+
+**Lesson:** third time this pattern has come up (#25, #28, #32). With a remote dev environment, always ask *which machine* "localhost" refers to. Also: never share screenshots of `callback?code=` URLs.
+
+## 33. AI-DLC installer let the agent edit any file without asking
+
+**Symptom:** installing AI-DLC 2.11.0 for Claude Code created `.claude/settings.json` with the permission `Edit(/**)`: the agent could create or change *any* file in the repo without asking, including `gitops/`, `helm/`, `infra/` and `.github/workflows/`. The installer also added hooks that run on every tool call, and a Stop hook that keeps the agent working through a workflow on its own.
+
+**Why it matters:** this repo deploys through GitOps. An unreviewed edit to `gitops/` or `helm/` would reach the cluster as soon as it was pushed and merged, and an edit to `.github/workflows/` could change the pipeline itself.
+
+**What happened:** I reviewed the dry-run and the full `settings.json` before applying anything. The agent then tried to narrow the permission, but AI-DLC's own `PreToolUse` hook blocked it: the agent isn't allowed to edit its own enforcement files. It also correctly refused to bypass the guard with `sed`.
+
+**Fix:** I made the change myself, replacing `Edit(/**)` with `Edit(/aidlc/**)` and `Edit(/docs/aidlc/**)`. The agent can now update AI-DLC's own docs freely, but every edit to code, infrastructure, GitOps config or workflows asks me first. Checked with `aidlc doctor`. Claude Code's auto mode is also off, so every command needs my approval.
+
+**Follow-up:** `aidlc update` or `aidlc config` may restore `Edit(/**)`. After either, check with `grep -n '"Edit(' .claude/settings.json`.
+
+**Lesson:** review the permissions any AI tooling installs before using it, keep humans in control of the agent's guardrails, and match the agent's freedom to the blast radius of the repo. In a GitOps repo, an unreviewed edit is effectively an unreviewed deploy.
 
 ## Handy fixes
 
