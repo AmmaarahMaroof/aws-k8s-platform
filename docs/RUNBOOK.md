@@ -1,6 +1,6 @@
 # Runbook: Uptime Monitor platform
 
-How to operate, deploy, roll back, restore and fully rebuild the platform.
+How to operate, deploy, roll back, restore and fully rebuild the platform, plus the local GitOps, logging and AI-agent setup.
 Every procedure here has been run for real at least once.
 
 **Environment:** `dev` (k3s on a single EC2 instance, eu-west-2)
@@ -180,7 +180,85 @@ curl -s localhost/status
 
 ---
 
-## 8. Known gotchas
+## 8. Local platform (minikube): GitOps, logging, AI agent
+
+The **AWS server** (sections 1–7) runs the app deployed by the Deploy pipeline.
+The **local minikube cluster** in the 4-core codespace runs the newer pieces: **Argo CD**, **Prometheus/Grafana**, **Loki + Alloy**, and the **AI-DLC agent** work.
+
+### Start a session
+```bash
+minikube status                       # if stopped: minikube start --cpus=4 --memory=8g
+kubectl -n argocd get applications    # uptime: Synced / Healthy
+kubectl -n uptime get pods            # api ×2 + postgres Running
+```
+If pods show `ImagePullBackOff`, the ECR token has expired (12-hour lifetime). Refresh it:
+```bash
+kubectl -n uptime delete secret ecr-pull
+kubectl -n uptime create secret docker-registry ecr-pull \
+  --docker-server=099021515478.dkr.ecr.eu-west-2.amazonaws.com \
+  --docker-username=AWS --docker-password="$(aws ecr get-login-password --region eu-west-2)"
+```
+(Run `aws login --remote` first if AWS credentials have expired.)
+
+### Open the UIs
+```bash
+bash scripts/ui.sh     # or the three port-forwards below
+kubectl -n argocd     port-forward svc/argocd-server                         8080:443 --address 0.0.0.0 > /dev/null 2>&1 &
+kubectl -n monitoring port-forward svc/kube-prom-grafana                     3000:80  --address 0.0.0.0 > /dev/null 2>&1 &
+kubectl -n monitoring port-forward svc/kube-prom-kube-prometheus-prometheus 9090:9090 --address 0.0.0.0 > /dev/null 2>&1 &
+```
+| Port | UI | Protocol (Ports tab) | Login |
+|---|---|---|---|
+| 8080 | Argo CD | **HTTPS** | `admin` / `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" \| base64 -d` |
+| 3000 | Grafana | HTTP | `admin` / `kubectl -n monitoring get secret kube-prom-grafana -o jsonpath="{.data.admin-password}" \| base64 -d` |
+| 9090 | Prometheus | HTTP | none |
+
+Always open them from the codespace **Ports** tab (globe icon), never `localhost` in a Mac browser. Stop them all with `pkill -f port-forward`.
+
+### Deploy and roll back (GitOps)
+- **Deploy:** change `helm/uptime-monitor/values-gitops.yaml` (or the chart) in a PR and merge it. Argo CD syncs `main` within ~3 minutes (click **Refresh** to speed it up).
+- **Roll back:** `git revert` the bad commit in a PR and merge it. Argo syncs back. Don't use `kubectl` to fix things by hand: Argo's **self-heal** reverts manual changes to whatever Git says.
+- **Check:** Argo UI → app **uptime** → Synced + Healthy, and **History and Rollback** shows which commit is live.
+
+### Logs (Loki)
+Grafana → **Explore** → data source **Loki** → Code mode, **one query per box**:
+| Query | Shows |
+|---|---|
+| `{namespace="uptime", app="api"}` | all API logs |
+| `{namespace="uptime", app="api"} != "/health" != "/ready"` | real traffic without probe noise |
+| `{namespace="uptime"} \|~ "(?i)error\|warn"` | errors and warnings |
+| `{namespace="uptime", pod=~"api-<hash>.*"}` | one specific ReplicaSet's pods |
+
+A pod that never started (e.g. `ImagePullBackOff`) has **no logs**. Use `kubectl -n uptime describe pod <pod>` → **Events** instead.
+
+### Checking alerts
+Prometheus (port 9090) → **Alerts**: Inactive / **Pending** (waiting out its `for:` period) / **Firing**.
+Useful queries in **Graph**:
+- `kube_pod_container_status_waiting_reason{namespace="uptime"}`: pods stuck waiting, and why
+- `ALERTS{namespace="uptime"}`: alert history, including when each went pending/firing
+
+Known gap (game day 1): alerts aren't routed to any contact point yet, and a stuck rollout takes 30+ minutes to fire.
+
+### Running a game day
+Procedure used for [game day 1](incidents/2026-10-13-bad-image-tag.md):
+1. Impact logger: `kubectl -n uptime port-forward svc/api 8000:80 &` then `while true; do echo "$(date +%T) $(curl -s -o /dev/null -w '%{http_code}' localhost:8000/health)"; sleep 5; done | tee gameday.log`
+2. `kubectl -n uptime get pods -w` in a second terminal; Argo + Grafana open; timestamped notes.
+3. Break it **through Git** (PR + merge), investigate for 15–20 minutes, fix it **through Git** (`git revert`), and note every time.
+4. Write the review in `docs/incidents/`: timeline, impact (including hidden impact), root cause, what went well/didn't, actions.
+
+### Working with the AI agent (Claude Code + AI-DLC)
+- Start it in the repo with `claude`. **Auto mode stays off**: approve each command yourself.
+- **Never approve** `kubectl apply/delete/scale/exec`, `aws`, `helm`, `terraform` or `git push` from the agent. Do those yourself.
+- The agent may edit only `aidlc/**` and `docs/aidlc/**` without asking (see troubleshooting #33). **After any `aidlc update` or `aidlc config`**, check this wasn't reset:
+  ```bash
+  grep -n '"Edit(' .claude/settings.json      # must NOT show "Edit(/**)"
+  aidlc doctor
+  ```
+- If you log in from the codespace and the browser lands on `localhost:<port>/callback?...` with "refused to connect", copy that URL and run `curl "<url>"` in a codespace terminal (troubleshooting #32).
+
+---
+
+## 9. Known gotchas
 
 | Symptom | Cause / fix |
 |---|---|
@@ -192,5 +270,13 @@ curl -s localhost/status
 | Deploy fails with `tag ... already exists` (immutable) | You used **Re-run jobs** on an old run, or the fix isn't on `main`. Use **Run workflow**; check with `git show origin/main:.github/workflows/deploy.yml` |
 | `git push` rejected: "Changes must be made through a pull request" | You committed on local `main`. `git checkout -b <branch>`, push that, open a PR, then `git checkout main && git reset --hard origin/main` |
 | CI lint fails on code nobody changed | An unpinned tool released new rules. Run the tool locally with `--fix`, and pin its version in `ci.yml` |
+| CI `429` / `toomanyrequests` pulling images | Registry rate limit on shared runners. Re-run the job; images are pulled from ECR Public mirrors (troubleshooting #24, #26) |
+| A workflow run fails instantly and is named by its file path, not its name | The workflow file is invalid (often indentation). Check with `actionlint` (troubleshooting #31) |
+| Deploy run shows a yellow "Server is stopped" warning | Expected: the AWS server is off, so the deploy was skipped. Start it and use **Run workflow** |
+| `kubectl`: `no route to host` on 192.168.49.2:8443 | minikube stopped with the codespace. `minikube start --cpus=4 --memory=8g` (troubleshooting #27) |
+| A UI won't open / "refused to connect" on localhost | Open it via the codespace **Ports** tab; Argo needs protocol HTTPS (troubleshooting #25) |
+| Grafana Loki: `no such host` | Loki isn't installed or the Service name is wrong: `helm list -n monitoring`, `kubectl get svc -n monitoring` (troubleshooting #29) |
+| Every log line appears twice | More than one Alloy pod. Alloy must run as a single-replica Deployment (troubleshooting #30) |
+| Branch is missing recent work | It was created from an out-of-date local `main`. Always `git checkout main && git pull` before `git checkout -b` |
 
 Full history of issues and fixes: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
