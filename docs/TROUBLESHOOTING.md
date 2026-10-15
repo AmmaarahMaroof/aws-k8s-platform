@@ -271,6 +271,18 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 
 **Lesson:** compare the source with the pipeline to find where duplication starts. Know whether a collector works per node or cluster-wide before scaling it.
 
+## 31. Deploy workflow failed instantly; GitHub showed the file path instead of its name
+ 
+**Symptom:** the Deploy run failed in 0 seconds with no logs, and the Actions list named it `.github/workflows/deploy.yml` instead of "Deploy".
+ 
+**Cause:** `paths-ignore:` was indented at the same level as `push:`, so GitHub read it as an event, which is invalid. It was still valid YAML, so a YAML parse check passed.
+ 
+**Fix:** indented `paths-ignore` under `push:` (same level as `branches:`).
+ 
+**Lesson:** valid YAML isn't the same as a valid workflow. Use `actionlint` to check workflow rules. If a run shows the file path instead of the workflow name, the workflow file itself is broken.
+ 
+ 
+
 ## Handy fixes
 
 | Symptom | Fix |
