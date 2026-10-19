@@ -306,6 +306,10 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 
 **Lesson:** review the permissions any AI tooling installs before using it, keep humans in control of the agent's guardrails, and match the agent's freedom to the blast radius of the repo. In a GitOps repo, an unreviewed edit is effectively an unreviewed deploy.
 
+## 34. IP was hardcoded by the agent
+
+My home IP was hardcoded in infra/envs/prod/main.tf and committed to the public repo. Dev correctly used a variable from gitignored tfvars, but prod had the literal value. Found by: the AI-DLC agent during its reverse-engineering scan. Fix: prod now uses var.http_allowed_cidr; I accepted that the old value stays in Git history (low risk, prod never applied). Lesson: a pre-commit secret/IP scan (e.g. gitleaks) would have caught it, so add one to CI.
+
 ## Handy fixes
 
 | Symptom | Fix |
