@@ -36,7 +36,7 @@ locals {
 }
 
 variable "http_allowed_cidr" {
-  description = "var.http_allowed_cidr"
+  description = "Your IP/32, allowed to reach the app on port 80. Set in terraform.tfvars (gitignored) or TF_VAR_http_allowed_cidr."
   type        = string
 }
 
@@ -48,7 +48,7 @@ module "network" {
   vpc_cidr           = "10.1.0.0/16"
   public_subnet_cidr = "10.1.1.0/24"
   availability_zone  = "eu-west-2a"
-  http_allowed_cidr  = "84.68.198.220/32"
+  http_allowed_cidr  = "var.http_allowed_cidr"
 }
 
 output "vpc_id" {
