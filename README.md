@@ -1,6 +1,10 @@
 # AWS Kubernetes Platform
 
-An end-to-end DevOps platform project: a FastAPI + PostgreSQL app, containerised with Docker, tested and scanned in GitHub Actions, packaged as a Helm chart, and deployed to Kubernetes on AWS infrastructure built with Terraform.
+An end-to-end DevOps platform project: a FastAPI + PostgreSQL uptime monitor, containerised with Docker, tested and scanned in GitHub Actions, packaged as a Helm chart, and deployed to Kubernetes on AWS infrastructure built with Terraform.
+
+A local platform adds **GitOps with Argo CD**, **metrics and alerts** with Prometheus and Grafana, and **logs** with Loki, and I tested it all with a planned incident ([game day](#game-day-deploying-a-broken-image-tag)).
+
+**Quick tour:** [incident review](docs/incidents/2026-10-13-bad-image-tag.md) · [troubleshooting log](docs/TROUBLESHOOTING.md) (30+ real issues) · [runbook](docs/RUNBOOK.md) · [cost](#cost)
 
 ## Architecture
 
@@ -130,7 +134,20 @@ helm upgrade --install loki  grafana/loki  --version 7.3.0  -n monitoring -f mon
 helm upgrade --install alloy grafana/alloy --version 1.13.1 -n monitoring -f monitoring/alloy-values.yaml
 ```
 
+## Game day: deploying a broken image tag
 
+A planned incident to test whether the platform catches a bad deploy. I merged a PR setting the image tag to one that doesn't exist, then investigated and recovered using only the tools above.
+
+| | |
+|---|---|
+| Break | PR #34 merged 14:42; CI passed, Argo CD synced within a minute |
+| User impact | None: the rolling update kept the old API pods serving (all HTTP 200) |
+| Hidden impact | The checker CronJob shares the image, so **uptime checks silently stopped** |
+| Detection | Argo CD showed the app unhealthy; Prometheus `kube_pod_container_status_waiting_reason` showed `ImagePullBackOff` for api and checker |
+| Alerts | **None fired.** `KubePodNotReady` only reached Pending after 16 min |
+| Recovery | `git revert` through a PR (#35), merged at 15:01: **19 minutes** total |
+
+**What I learned:** the platform protected users but not its own purpose, and my alerts couldn't see a failure that produces *no* data. Follow-up actions (an alert for "no successful check in 10 min", a stuck-rollout alert, an image-exists check in CI) are in the [incident review](docs/incidents/2026-10-13-bad-image-tag.md).
 
 ## Roadmap
 - [x] Dev environment defined as code (devcontainer)
@@ -146,9 +163,15 @@ helm upgrade --install alloy grafana/alloy --version 1.13.1 -n monitoring -f mon
 - [x] Phase 7: Monitoring and alerting
 - [x] Phase 8: Security, backups, disaster recovery
 - [x] Phase 9: Polish (runbook)
+- [x] **Platform v2**
+  - [x] Step 1: Cost breakdown and trade-offs
+  - [x] Step 2: GitOps with Argo CD (self-heal, deploy and rollback by Git)
+  - [x] Step 3: Loki + Alloy logging, and a game day with an incident review
+  - [ ] Step 4 (in progress): AI-assisted operations: a read-only ops tool for Claude Code that investigates incidents, built with AWS AI-DLC and human approval at every stage
 
 ## Docs
 - [How the app works](docs/APP.md)
 - [Security decisions and vulnerability triage](docs/SECURITY.md)
 - [Troubleshooting log: real issues and how they were fixed](docs/TROUBLESHOOTING.md)
 - [Runbook](docs/RUNBOOK.md): deploy, rollback, alerts, backups and restore, disaster recovery (tested: full rebuild + restore in ≈17 min)
+- [Incident review: bad image tag game day](docs/incidents/2026-10-13-bad-image-tag.md)
