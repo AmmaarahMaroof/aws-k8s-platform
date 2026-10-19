@@ -36,7 +36,7 @@ locals {
 }
 
 variable "http_allowed_cidr" {
-  description = "Your IP/32, allowed to reach the app on port 80. Set in terraform.tfvars (gitignored) or TF_VAR_http_allowed_cidr."
+  description = "var.http_allowed_cidr"
   type        = string
 }
 
