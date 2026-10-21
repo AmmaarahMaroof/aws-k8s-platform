@@ -245,8 +245,6 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Fix:** `aws login --remote`, which shows a code to paste back into the terminal instead of redirecting.
 =======
 
->>>>>>> Stashed changes
-
 ## 29. Grafana: `lookup loki.monitoring.svc: no such host`
 
 **Symptom:** the Loki data source was added to Grafana, but every query failed with `dial tcp: lookup loki.monitoring.svc on 10.96.0.10:53: no such host`.
@@ -311,7 +309,16 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 
 My home IP was hardcoded in infra/envs/prod/main.tf and committed to the public repo. Dev correctly used a variable from gitignored tfvars, but prod had the literal value. Found by: the AI-DLC agent during its reverse-engineering scan. Fix: prod now uses var.http_allowed_cidr; I accepted that the old value stays in Git history (low risk, prod never applied). Lesson: a pre-commit secret/IP scan (e.g. gitleaks) would have caught it, so add one to CI.
 =======
->>>>>>> origin/main
+
+## 35. Custom Grafana dashboard missing after rebuilding on a new machine
+
+**Symptom:** after rebuilding the local platform on a new laptop, Grafana showed all the built-in Kubernetes dashboards but not **Uptime Monitor**.
+
+**Cause:** the dashboard JSON was in the repo (`monitoring/dashboards/uptime-monitor.json`), but I had originally imported it by hand through the Grafana UI. A fresh Grafana had no way of knowing about it, so the setup wasn't fully reproducible.
+
+**Fix:** loaded it as a ConfigMap with the label `grafana_dashboard=1`. kube-prometheus-stack's Grafana sidecar watches for that label and provisions the dashboard automatically. Added it to the runbook's fresh-setup steps.
+
+**Lesson:** anything set up by clicking in a UI is lost on rebuild. If it isn't in Git or a documented command, it doesn't really exist. Rebuilding on a new machine is a cheap way to find these gaps.
 
 ## Handy fixes
 
