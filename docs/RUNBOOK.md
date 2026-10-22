@@ -185,6 +185,65 @@ curl -s localhost/status
 The **AWS server** (sections 1–7) runs the app deployed by the Deploy pipeline.
 The **local minikube cluster** in the 4-core codespace runs the newer pieces: **Argo CD**, **Prometheus/Grafana**, **Loki + Alloy**, and the **AI-DLC agent** work.
 
+### Fresh machine setup (Windows laptop + WSL2)
+
+Rebuilt the whole local platform on a new laptop on 21 October 2026, after the codespace ran out of storage: **about 45 minutes** from an empty machine to the app, GitOps, metrics, logs and dashboards running. This is the order that works.
+
+**Machine:** Windows 11, i7 (6 cores), 16 GB RAM, Ubuntu on WSL2, Docker Desktop (WSL 2 backend, Ubuntu integration on).
+
+1. **Give WSL enough memory.** `C:\Users\<you>\.wslconfig`:
+```ini
+   [wsl2]
+   memory=12GB
+   processors=6
+```
+   Then `wsl --shutdown` and reopen Ubuntu. Check with `free -h`.
+2. **Tools:** git, kubectl, minikube, Helm, Terraform, AWS CLI v2, Python 3. Check with
+   `docker --version && kubectl version --client && minikube version && helm version && terraform -version && aws --version`
+3. **Clone into the Linux home folder, not `/mnt/c`** (much faster, no line-ending problems), and open VS Code connected to WSL (`code .`, bottom-left shows **WSL: Ubuntu**).
+4. **Start the cluster:** `minikube start --cpus=4 --memory=8192`
+5. **Monitoring first.** The chart's `ServiceMonitor` and `PrometheusRule` need kube-prometheus-stack's CRDs, so install it before the app:
+```bash
+   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+   helm repo add grafana https://grafana.github.io/helm-charts
+   helm repo update
+   kubectl create namespace monitoring
+   helm upgrade --install kube-prom prometheus-community/kube-prometheus-stack --version 92.11.0 -n monitoring -f monitoring/kube-prometheus-stack-values.yaml
+   helm upgrade --install loki  grafana/loki  --version 7.3.0  -n monitoring -f monitoring/loki-values.yaml
+   helm upgrade --install alloy grafana/alloy --version 1.13.1 -n monitoring -f monitoring/alloy-values.yaml
+```
+6. **Argo CD:**
+```bash
+   kubectl create namespace argocd
+   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+7. **AWS login** (needed to pull the image from ECR): `aws configure` / `aws login --remote`, then `aws sts get-caller-identity`.
+8. **Namespace and Secrets** (the manual step, kept out of Git on purpose):
+```bash
+   kubectl create namespace uptime
+   PW=$(openssl rand -hex 16)
+   kubectl -n uptime create secret generic db-credentials --from-literal=POSTGRES_USER=uptime --from-literal=POSTGRES_PASSWORD="$PW" --from-literal=POSTGRES_DB=uptime
+   kubectl -n uptime create secret generic app-config --from-literal=DATABASE_URL="postgresql+psycopg://uptime:${PW}@db:5432/uptime"
+   unset PW
+   kubectl -n uptime create secret docker-registry ecr-pull \
+     --docker-server=099021515478.dkr.ecr.eu-west-2.amazonaws.com \
+     --docker-username=AWS --docker-password="$(aws ecr get-login-password --region eu-west-2)"
+```
+9. **Hand the app to Argo CD:** `kubectl apply -f gitops/uptime-app.yaml`
+10. **Load the Grafana dashboard from the repo** (troubleshooting #35):
+```bash
+    kubectl -n monitoring create configmap uptime-dashboard --from-file=monitoring/dashboards/uptime-monitor.json
+    kubectl -n monitoring label configmap uptime-dashboard grafana_dashboard=1
+```
+11. **Verify:** `kubectl get pods -A` (all Running), `kubectl -n argocd get applications` (`uptime`: Synced / Healthy), and **Uptime Monitor** in Grafana.
+
+**On a laptop, `localhost` works.** Port-forwards from WSL open in the Windows browser at `http://localhost:3000` (Grafana) and `https://localhost:8080` (Argo CD). The codespace Ports-tab rule doesn't apply here.
+
+**Gaps found by this rebuild:** the custom dashboard had been imported by hand (#35), and the kube-prometheus-stack version wasn't pinned, so the runbook couldn't reproduce the exact install.
+
+**Next improvements:** script steps 5–10 into one `scripts/bootstrap-local.sh`, and manage Argo CD and the dashboard through Git as well.
+
+
 ### Start a session
 ```bash
 minikube status                       # if stopped: minikube start --cpus=4 --memory=8g
@@ -278,5 +337,6 @@ Procedure used for [game day 1](incidents/2026-10-13-bad-image-tag.md):
 | Grafana Loki: `no such host` | Loki isn't installed or the Service name is wrong: `helm list -n monitoring`, `kubectl get svc -n monitoring` (troubleshooting #29) |
 | Every log line appears twice | More than one Alloy pod. Alloy must run as a single-replica Deployment (troubleshooting #30) |
 | Branch is missing recent work | It was created from an out-of-date local `main`. Always `git checkout main && git pull` before `git checkout -b` |
+| Custom Grafana dashboard missing after a rebuild | It was imported by hand. Load it as a labelled ConfigMap (troubleshooting #35) |
 
 Full history of issues and fixes: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

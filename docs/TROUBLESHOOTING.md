@@ -184,7 +184,6 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Verified:** Run workflow on 9 Oct 2026 deployed successfully without rebuilding.
 ---
 
-<<<<<<< Updated upstream
 ## 24. CI broke repeatedly on a docs-only PR: rate limits, then my own fixes
 
 **Symptom:** the Phase 9 PR (README/docs only) failed `build-and-scan` several times in a row, for different reasons.
@@ -243,9 +242,6 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Cause:** plain `aws login` expects the browser and CLI on the same machine. The CLI was in the codespace, the browser on my Mac (same root cause as #25).
 
 **Fix:** `aws login --remote`, which shows a code to paste back into the terminal instead of redirecting.
-=======
-
->>>>>>> Stashed changes
 
 ## 29. Grafana: `lookup loki.monitoring.svc: no such host`
 
@@ -281,7 +277,7 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
  
 **Lesson:** valid YAML isn't the same as a valid workflow. Use `actionlint` to check workflow rules. If a run shows the file path instead of the workflow name, the workflow file itself is broken.
  
- ## 32. Browser logins from the codespace fail with "localhost refused to connect"
+## 32. Browser logins from the codespace fail with "localhost refused to connect"
 
 **Symptom:** after signing in to Claude Code (`claude`), the browser went to `localhost:34101/callback?code=...` and showed `ERR_CONNECTION_REFUSED`. The same thing happened earlier with `aws login` (#28).
 
@@ -305,13 +301,20 @@ Format: **Symptom → Diagnosis → Cause → Fix → Lesson.**
 **Follow-up:** `aidlc update` or `aidlc config` may restore `Edit(/**)`. After either, check with `grep -n '"Edit(' .claude/settings.json`.
 
 **Lesson:** review the permissions any AI tooling installs before using it, keep humans in control of the agent's guardrails, and match the agent's freedom to the blast radius of the repo. In a GitOps repo, an unreviewed edit is effectively an unreviewed deploy.
-<<<<<<< HEAD
 
 ## 34. IP was hardcoded by the agent
 
 My home IP was hardcoded in infra/envs/prod/main.tf and committed to the public repo. Dev correctly used a variable from gitignored tfvars, but prod had the literal value. Found by: the AI-DLC agent during its reverse-engineering scan. Fix: prod now uses var.http_allowed_cidr; I accepted that the old value stays in Git history (low risk, prod never applied). Lesson: a pre-commit secret/IP scan (e.g. gitleaks) would have caught it, so add one to CI.
-=======
->>>>>>> origin/main
+
+## 35. Custom Grafana dashboard missing after rebuilding on a new machine
+
+**Symptom:** after rebuilding the local platform on a new laptop, Grafana showed all the built-in Kubernetes dashboards but not **Uptime Monitor**.
+
+**Cause:** the dashboard JSON was in the repo (`monitoring/dashboards/uptime-monitor.json`), but I had originally imported it by hand through the Grafana UI. A fresh Grafana had no way of knowing about it, so the setup wasn't fully reproducible.
+
+**Fix:** loaded it as a ConfigMap with the label `grafana_dashboard=1`. kube-prometheus-stack's Grafana sidecar watches for that label and provisions the dashboard automatically. Added it to the runbook's fresh-setup steps.
+
+**Lesson:** anything set up by clicking in a UI is lost on rebuild. If it isn't in Git or a documented command, it doesn't really exist. Rebuilding on a new machine is a cheap way to find these gaps.
 
 ## Handy fixes
 
