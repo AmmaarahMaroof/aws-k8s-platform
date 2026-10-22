@@ -208,7 +208,7 @@ Rebuilt the whole local platform on a new laptop on 21 October 2026, after the c
    helm repo add grafana https://grafana.github.io/helm-charts
    helm repo update
    kubectl create namespace monitoring
-   helm upgrade --install kube-prom prometheus-community/kube-prometheus-stack --version v0.94.1 -n monitoring -f monitoring/kube-prometheus-stack-values.yaml
+   helm upgrade --install kube-prom prometheus-community/kube-prometheus-stack --version 92.11.0 -n monitoring -f monitoring/kube-prometheus-stack-values.yaml
    helm upgrade --install loki  grafana/loki  --version 7.3.0  -n monitoring -f monitoring/loki-values.yaml
    helm upgrade --install alloy grafana/alloy --version 1.13.1 -n monitoring -f monitoring/alloy-values.yaml
 ```
