@@ -11,19 +11,21 @@
     "FR8", "FR8.1", "FR8.2",
     "FR9", "FR9.1", "FR9.2", "FR9.3",
     "FR10", "FR10.1", "FR10.2", "FR10.3",
-    "FR11", "FR11.1", "FR11.2", "FR11.3", "FR11.4"
+    "FR11", "FR11.1", "FR11.2", "FR11.3", "FR11.4",
+    "NFR1", "NFR1.2", "NFR1.3", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9",
+    "NFR10", "NFR10.2", "NFR11", "NFR13"
   ],
   "coverage": [
     { "id": "FR1", "status": "OK", "target": "OpsMcpServer" },
     { "id": "FR1.1", "status": "OK", "target": "OpsMcpServer" },
     { "id": "FR1.2", "status": "OK", "target": "OpsMcpServer" },
     { "id": "FR1.3", "status": "OK", "target": "StartupGuard" },
-    { "id": "FR1.4", "status": "OK", "target": "StartupGuard" },
+    { "id": "FR1.4", "status": "OK", "target": "ReadOnlyIdentityKit" },
     { "id": "FR1.5", "status": "OK", "target": "OpsMcpServer" },
     { "id": "FR1.6", "status": "OK", "target": "InvestigationGuide" },
     { "id": "FR2", "status": "OK", "target": "KubernetesReader" },
     { "id": "FR2.1", "status": "OK", "target": "PodSnapshot" },
-    { "id": "FR2.2", "status": "OK", "target": "KubernetesReader" },
+    { "id": "FR2.2", "status": "OK", "target": "PodSnapshot" },
     { "id": "FR2.3", "status": "OK", "target": "WorkloadSnapshot" },
     { "id": "FR2.4", "status": "OK", "target": "ToolCatalog" },
     { "id": "FR2.5", "status": "OK", "target": "ImagePullDiagnosis" },
@@ -70,6 +72,21 @@
     { "id": "FR11.1", "status": "OK", "target": "InvestigationGuide" },
     { "id": "FR11.2", "status": "OK", "target": "InvestigationGuide" },
     { "id": "FR11.3", "status": "OK", "target": "PromptTemplate" },
-    { "id": "FR11.4", "status": "OK", "target": "InvestigationGuide" }
+    { "id": "FR11.4", "status": "OK", "target": "InvestigationGuide" },
+    { "id": "NFR1", "status": "OK", "target": "ReadOnlyIdentityKit" },
+    { "id": "NFR1.2", "status": "OK", "target": "StartupGuard" },
+    { "id": "NFR1.3", "status": "OK", "target": "ClusterSession" },
+    { "id": "NFR2", "status": "OK", "target": "SeededSampleSet" },
+    { "id": "NFR3", "status": "OK", "target": "EvidencePipeline" },
+    { "id": "NFR4", "status": "Deferred", "target": "End-to-end report time is a property of the whole Claude Code session, not of one component; verified only at the NFR11 live acceptance run" },
+    { "id": "NFR5", "status": "OK", "target": "OpsMcpServer" },
+    { "id": "NFR6", "status": "OK", "target": "ToolCatalog" },
+    { "id": "NFR7", "status": "OK", "target": "ToolCatalog" },
+    { "id": "NFR8", "status": "OK", "target": "ToolCatalog" },
+    { "id": "NFR9", "status": "OK", "target": "CallLog" },
+    { "id": "NFR10", "status": "OK", "target": "FixtureRecorder" },
+    { "id": "NFR10.2", "status": "OK", "target": "FixtureLeakScan" },
+    { "id": "NFR11", "status": "OK", "target": "CallLog" },
+    { "id": "NFR13", "status": "OK", "target": "GitReader" }
   ]
 }
