@@ -43,13 +43,15 @@ Source key: `[desc]` = the initial request and `docs/aidlc/inception/intent.md`;
   - "unauthorized / no basic auth credentials / denied", where the `ecr-pull` credentials are expired or invalid.
 
   The report must name which one applies.
-- **FR2.6** When the cause is a missing tag, the investigation distinguishes **"tag never existed"** from **"tag deleted by the ECR lifecycle policy"** (ECR keeps only the 5 newest images). It uses only evidence available without AWS access:
-  - **Previously deployed?** Has the same image reference run successfully before? Sources: earlier ReplicaSets with Ready pods, Argo CD sync history, or Git history of the deployed values files.
-  - **Built by CI?** Does the tag match the CI tagging scheme (a commit SHA on `main` built by the pipeline), and how many newer images CI has pushed since? More than 5 means the lifecycle policy has likely expired it.
+- **FR2.6** When the cause is a missing tag, the investigation distinguishes **"tag never existed"** from **"tag likely deleted by the ECR lifecycle policy"** (ECR keeps only the 5 newest images). It uses one heuristic that needs no AWS access:
+  - If the tag is the **full SHA of a first-parent commit on `origin/main`**, CI tags images with the commit SHA, so the image was likely built and then expired by the lifecycle policy: classify "likely deleted by lifecycle policy".
+  - Otherwise, classify "never existed".
 
-  The report labels the conclusion with this evidence. Where neither signal settles it, the report says "undetermined without registry access". **Pass/fail:**
-  - The game-day fixture (`gameday-does-not-exist`, never deployed, not a commit SHA) is classified "never existed".
-  - A fixture variant whose tag is an old CI-built SHA, previously Running, with 6 or more newer builds, is classified "likely deleted by lifecycle policy" [operator feedback at the gate] [codekb:code-quality-assessment.md: ECR keeps 5 images].
+  The report labels the conclusion as a heuristic and shows its reason. It reads no workflow file and counts no builds. **Pass/fail:**
+  - The game-day fixture (`gameday-does-not-exist`, not a commit SHA) is classified "never existed".
+  - A fixture variant whose tag is the full SHA of an older first-parent commit on `origin/main` is classified "likely deleted by lifecycle policy".
+
+  [operator feedback at the gate] [operator decision at the Domain Design gate, 2026-10-25] [codekb:code-quality-assessment.md: ECR keeps 5 images]
 - **FR2.7** Partial and after-the-fact failures are covered:
   - **Partial failure:** during a rolling update where old pods still serve, the workload tool reports both the old ReplicaSet (Ready) and the new one (failing). The report states the impact as "partial: old version still serving".
   - **After a revert:** once the failing pods are gone, the tools still return what remains, namely ReplicaSet image history, Argo CD sync history and Git history. The report says the live failure evidence is no longer present.
@@ -73,8 +75,8 @@ Source key: `[desc]` = the initial request and `docs/aidlc/inception/intent.md`;
 - **FR6.2** A tool reads the local Git history of the repository for the paths that define what is deployed (by default `helm/uptime-monitor/values-gitops.yaml` and `helm/uptime-monitor/`). It returns commits in a window with hash, time, author, subject (which carries the PR number in squash-merge titles, for example `(#34)`), and the diff of the deployed paths, size-limited [Q10] [desc].
 - **FR6.3** The deploy tools link the Argo CD revision to the Git commit, so the session can state "the deployed revision `<sha>` is the commit from PR #N that changed `image.tag` from X to Y" [desc].
 - **FR6.4** Git access is read-only. The server never runs a command that writes to the repository, its refs or its remote [Q5] [Q10].
-- **FR6.5** Every Git tool response states **which commit was checked**: the local `HEAD` hash and branch. It also warns when the local clone is **behind `origin/main`**, with how many commits. The comparison uses the read-only `git ls-remote origin refs/heads/main` (this writes no refs; see NFR13). If the remote is unreachable, the tool compares against the local `origin/main` ref, says so, and gives the time of the last fetch [operator feedback at the gate].
-- **FR6.6** If the Argo CD deployed revision is not in local Git history, the tool returns an explicit error: "revision `<sha>` not in local history; the clone may be stale (run `git fetch`)". It never returns an empty result. The tool also reports a mismatch when the Argo CD Application's source repo URL or target branch differs from the local clone's `origin` and branch.
+- **FR6.5** Every Git tool response states **which commit was checked**: the local `HEAD` hash and branch. It also warns when the local clone is **behind `origin/main`**, with how many commits. The comparison is with the local `origin/main` ref as recorded at the last fetch. The response gives the time of that fetch (from the `origin/main` reflog, or "unknown"), and says the comparison is only as fresh as the last fetch. The server never contacts the remote and never fetches (NFR13) [operator feedback at the gate] [operator decision at the Domain Design gate, 2026-10-25].
+- **FR6.6** If the Argo CD deployed revision is not in local Git history, the tool returns an explicit error: "revision `<sha>` not in local history; the clone may be stale (run `git fetch`)". It never returns an empty result. The tool also reports a mismatch when the Argo CD Application's target branch differs from the local clone's branch. A target that is not a branch name is reported as "not comparable". The repo URL is not compared (see Out of Scope) [operator decision at the Domain Design gate, 2026-10-25].
 
 ### FR7: Redaction (applies to every tool)
 - **FR7.1** Every tool redacts its output **inside the server, before returning it**. No raw output path bypasses redaction [Q4] [desc].
@@ -135,14 +137,14 @@ Source key: `[desc]` = the initial request and `docs/aidlc/inception/intent.md`;
 ### Security
 - **NFR1: Read-only cluster identity.**
   - The server's identity is a dedicated ServiceAccount whose RBAC grants only `get`, `list` and `watch`. It covers only the resources the tools need: pods, `pods/log`, events, deployments, replicasets, jobs, cronjobs, and Argo CD `applications`.
-  - On top of that, it holds exactly the read access for Prometheus and Loki that design picks under NFR1.3. Design must add that entry to this list by name (for example `get` on `services/proxy` with `resourceNames` limited to the two services).
+  - On top of that, it holds exactly the read access for Prometheus and Loki chosen under NFR1.3: `get` on `services/proxy` in the `monitoring` namespace, with `resourceNames` limited to the Prometheus and Loki services (Domain Design ADR-009). The exact `resourceNames` strings are pinned in Infrastructure Design.
   - It grants nothing on `secrets`, and no `create`/`update`/`patch`/`delete`, `pods/exec`, `pods/attach` or `pods/portforward`.
   - **Pass/fail:**
     - `kubectl auth can-i --list --as=system:serviceaccount:<ns>:<sa>` shows only the listed verbs and resources.
     - `can-i get secrets`, `can-i list secrets`, `can-i delete pods`, `can-i create pods/exec` and `can-i patch deployments` all return `no`.
   - [Q3] [desc] [operator feedback at the gate]
 - **NFR1.2: Self-check at startup.** On startup the server checks its own permissions with SelfSubjectAccessReview / SelfSubjectRulesReview. These review requests are the **only** write-shaped API calls the server ever makes. Kubernetes allows them to every authenticated identity by default, so they need no RBAC grant. The server **refuses to serve** if its identity can read Secrets or perform any create, update, patch, delete or exec action. **Pass/fail:** started with an admin kubeconfig, the server exits with a clear error naming the excess permission [Q3] [desc].
-- **NFR1.3: Metrics and logs access is read-only.** However Prometheus and Loki are reached (the mechanism is design question OQ1), the access is read-only:
+- **NFR1.3: Metrics and logs access is read-only.** Prometheus and Loki are reached through the Kubernetes API server's service proxy, with the server's own identity (resolves OQ1; Domain Design ADR-009). The access is read-only:
   - The server only calls their query endpoints with HTTP `GET`: Prometheus `/api/v1/query`, `/api/v1/query_range` and `/api/v1/alerts`; Loki `/loki/api/v1/query_range` and `/loki/api/v1/labels`.
   - It never calls an admin, write or delete endpoint.
   - It never uses the operator's admin credentials from inside the server.
@@ -163,11 +165,17 @@ Source key: `[desc]` = the initial request and `docs/aidlc/inception/intent.md`;
     - Each appears as `[REDACTED:<kind>]`.
     - The FR7.4 count matches the number seeded.
     - The FR7.6 identifiers survive.
-  - [desc] [Q11] [operator feedback at the gate]- **NFR13: No outbound calls.**
-  - The server opens network connections only to the Kubernetes API server, and to Prometheus and Loki by the read-only path of NFR1.3.
-  - Its only other connection is the single read-only `git ls-remote` call of FR6.5 to the repo's `origin`, which writes no refs.
-  - It starts no processes except `git` with a fixed allow-list of read-only subcommands: `log`, `show`, `diff`, `rev-parse`, `ls-remote`, `cat-file`, `for-each-ref` and `status`.
-  - **Pass/fail:** a unit test fails if the Git runner is asked for any subcommand outside the allow-list (for example `fetch`, `push`, `commit`, `checkout`, `reset` or `config`), or for a flag that writes (for example `--output`). A test with network access blocked shows that the tools make no other outbound connection [Q4] [operator feedback at the gate].
+  - [desc] [Q11] [operator feedback at the gate]
+- **NFR13: No outbound calls.**
+  - The server opens network connections only to the Kubernetes API server. Prometheus and Loki are reached through it, by the service proxy of NFR1.3. It makes no other connection; in particular it never contacts the Git remote.
+  - It starts no processes except `git`, limited to the read-only plumbing subcommands `rev-parse`, `log`, `show` and `rev-list`. They are used in nine fixed argv shapes (Domain Design `components.md` > GitReader, G1 to G9), with `--` before any path, and refs validated as a hex SHA or a fixed name such as `HEAD` or `refs/remotes/origin/main`. No shape reads a file at a past commit or the remote URL. The git fixture transcript records only these shapes.
+  - Git runs with a scrubbed environment: `GIT_OPTIONAL_LOCKS=0`, no fsmonitor, no external diff or textconv, no hooks, and `protocol.ext.allow=never`.
+  - **Pass/fail:**
+    - A unit test fails if the Git runner is asked for any other subcommand (for example `status`, `diff`, `ls-remote`, `fetch`, `push`, `commit`, `checkout`, `reset` or `config`), an argv outside the fixed shapes, an unvalidated or option-like ref, or an environment that is not scrubbed.
+    - A test shows that `.git/index`, the refs and the reflogs are unchanged after every Git-backed tool runs.
+    - A test with network access blocked shows that the tools make no connection other than to the API server.
+  - [Q4] [operator feedback at the gate] [operator decision at the Domain Design gate, 2026-10-25]
+
 
 ### Performance
 - **NFR3: Per-tool limits.**
@@ -242,7 +250,7 @@ Source key: `[desc]` = the initial request and `docs/aidlc/inception/intent.md`;
 
 - **A1** The server is written in Python, the repo's existing language, with its existing `pytest` and `ruff` tooling, and uses the official MCP Python SDK. *Reason:* one language and one toolchain in the repo; design may revisit this [codekb:technology-stack.md].
 - **A2** *(Confirmed by the operator at the gate. It is now a requirement in NFR10 and NFR11.)* The live acceptance run names whichever PR or commit introduced the bad tag in that run. Only the recorded fixtures expect PR #34.
-- **A3** How Prometheus and Loki are reached is open (OQ1). Whichever path design picks must stay read-only (NFR1.3). *Reason:* the operator's rule allows only get/list/watch. Port-forward creation is a write verb, so it cannot be granted to the server's identity [Q3] [operator feedback at the gate].
+- **A3** *(Resolved in Domain Design, ADR-009.)* Prometheus and Loki are reached through the API-server service proxy with `get` on `services/proxy`, which stays read-only (NFR1.3). *Reason:* the operator's rule allows only get/list/watch. Port-forward creation is a write verb, so it cannot be granted to the server's identity [Q3] [operator feedback at the gate].
 - **A4** Kubernetes Events are kept for about one hour, so the live run happens within an hour of the break. The fixtures capture events at recording time [incident] [codekb:api-documentation.md §7: events are not collected into Loki].
 - **A5** *(Replaced by FR11.2.)* Every session command, including the Git commands of fix preparation, is approved by hand.
 - **A6** Argo CD is installed in the `argocd` namespace and its Application CRDs are readable through the Kubernetes API. The server does not use the Argo CD API server or its credentials [Q10] [codekb:component-inventory.md].
@@ -257,11 +265,12 @@ Source key: `[desc]` = the initial request and `docs/aidlc/inception/intent.md`;
 - The GitHub API (PR descriptions, reviews) [Q10].
 - Incident classes other than bad image tags (ImagePullBackOff/ErrImagePull, including shared-image impact): CrashLoopBackOff, OOMKilled, Pending, app-level symptoms. The tools are general, but only this class is specified and tested [Q6].
 - Building the detection fixes from the incident review (the stale-check alert, the stuck-pod alert, the CI image-tag check, collecting events into Loki, an Alertmanager receiver). They are only proposed as follow-ups (FR9.3) [Q9].
+- Comparing the Argo CD Application's source repo URL with the local clone's `origin` ("repo URL mismatch"). This is a single-repo setup, so FR6.6 compares branches only [operator decision at the Domain Design gate, 2026-10-25].
 - Checking image tag existence in ECR, which would need AWS credentials. The registry's "not found" pull message is the evidence [Q10] [incident].
 
 ## 7. Open Questions (for later stages)
 
-- **OQ1 (design):** how the server reaches Prometheus and Loki (NFR1.3, A3). The options are the API-server service proxy with `resourceNames`, or an operator-started port-forward. Each has its own security and RBAC trade-offs. Whichever is chosen must be read-only (NFR1.3) and must be added to NFR1's RBAC list by name.
+- **OQ1 (resolved in Domain Design, ADR-009):** the server reaches Prometheus and Loki through the API-server service proxy, with `get` on `services/proxy` limited by `resourceNames`. It is named in NFR1's RBAC list.
 - **OQ2 (design):** where the ServiceAccount lives (`uptime` or a dedicated `ops-assistant` namespace), and how the kubeconfig token is issued and rotated (a short-lived `kubectl create token` versus a long-lived token Secret).
 - **OQ3 (design):** the form of the investigation entry point (FR1.6): an MCP prompt served by the server, or a project-level Claude Code instruction/skill.
 - **OQ4 (design):** the redaction approach and its false-positive policy, for example whether to redact all long high-entropy strings or only known patterns.
